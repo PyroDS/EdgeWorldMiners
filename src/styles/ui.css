@@ -1,0 +1,410 @@
+/* src/styles/ui.css */
+
+/* Define root variables from the game's color palette for consistency */
+:root {
+  --panel-bg: #0a1a2a;
+  --panel-border: #00aaff;
+  --text-primary: #ffffff;
+  --text-secondary: #00ccff;
+  --font-family: 'Rajdhani', sans-serif;
+}
+
+/* Main application layout */
+#app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Left Navigation Panel Styling */
+#left-nav {
+  width: 240px; /* Fixed width for the nav panel */
+  background-color: var(--panel-bg);
+  border-right: 2px solid var(--panel-border);
+  color: var(--text-primary);
+  padding: 1rem;
+  box-sizing: border-box;
+  flex-shrink: 0; /* Prevents the nav from shrinking */
+}
+
+.game-title {
+  font-family: var(--font-family);
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 2rem;
+  font-weight: 700;
+}
+
+/* Game Area Layout */
+#game-area-container {
+  flex-grow: 1; /* Allows the game area to fill the remaining space */
+  position: relative; /* Crucial for positioning the UI overlay */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Game canvas container */
+#game-container {
+  flex-grow: 1;
+  overflow: hidden; /* Ensures canvas doesn't overflow its container */
+  min-width: 0; /* Allow the canvas container to shrink */
+  min-height: 0;
+}
+
+/* Ensure the Phaser-generated canvas scales with its parent */
+#game-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* UI Overlay Styling */
+#ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Allows mouse events to pass through to the canvas */
+  z-index: 10;
+}
+
+/* Allow child elements of the overlay to be interactive */
+#ui-overlay > * {
+  pointer-events: auto;
+}
+
+/* Top Bar HUD Styling */
+#top-bar-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 80px;
+  background-color: rgba(10, 26, 42, 0.85); /* --panel-bg with opacity */
+  border-bottom: 2px solid var(--panel-border);
+  box-sizing: border-box;
+  color: var(--text-primary);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* Left, Center, Right columns */
+  align-items: center;
+  padding: 0 1rem;
+  font-family: var(--font-family);
+}
+
+.hud-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.hud-section.left {
+  justify-self: start;
+}
+
+.hud-section.center {
+  justify-self: center; /* Center within the grid column */
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25rem;
+  /* No longer needs absolute positioning */
+}
+
+.hud-section.right {
+  justify-self: end; /* Align to the end of the grid column */
+  justify-content: flex-end;
+}
+
+/* Resource Display */
+.hud-resource-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hud-resource-icon {
+  width: 14px;
+  height: 20px;
+  background-color: #33ffcc; /* From original resource icon */
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  transition: transform 0.2s;
+}
+
+.hud-resource-icon.flash {
+  animation: flash-anim 0.2s 3;
+}
+
+@keyframes flash-anim {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+#resource-text {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Structure Status */
+.hud-structure-status {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+  gap: 0.2rem;
+}
+
+.hud-structure-status .ok { color: #22ff99; }
+.hud-structure-status .medium { color: #ff9900; }
+.hud-structure-status .low { color: #ff3300; }
+
+/* Wave Info */
+#wave-text {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+#wave-status-text {
+  font-size: 1rem;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+#wave-status-text.active {
+  color: #ff3300; /* danger */
+  font-weight: bold;
+}
+
+/* Wave Progress Bar */
+#wave-progress-bar {
+  width: 250px;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.3);
+  margin-top: 4px;
+}
+
+#wave-progress-fill {
+  width: 0%;
+  height: 100%;
+  background-color: var(--panel-border);
+  transition: width 0.2s linear;
+}
+#wave-progress-fill.active {
+  background-color: #ff3300; /* danger */
+}
+
+/* Enemy Counters */
+.hud-enemy-counters {
+  display: flex;
+  gap: 1rem;
+}
+.enemy-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.enemy-icon {
+  width: 14px;
+  height: 14px;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+.enemy-icon.red { background-color: #ff3300; }
+.enemy-icon.purple { background-color: #9933ff; }
+#enemy-red-count, #enemy-purple-count {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Build Menu Styling */
+#build-menu {
+  position: absolute;
+  bottom: -300px; /* Start hidden below the screen */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  background-color: rgba(10, 26, 42, 0.95); /* --panel-bg with more opacity */
+  border: 2px solid var(--panel-border);
+  border-bottom: none;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  box-shadow: 0 0 15px rgba(0, 170, 255, 0.5);
+  padding: 1rem;
+  box-sizing: border-box;
+  transition: bottom 0.3s ease-in-out;
+  z-index: 20; /* Above the main HUD */
+}
+
+#build-menu.visible {
+  bottom: 0; /* Slide into view */
+}
+
+#build-menu h3 {
+  text-align: center;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.build-buttons-container {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.build-button {
+  width: 250px;
+  background-color: #003366; /* button_bg */
+  border: 1px solid var(--panel-border);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  font-family: var(--font-family);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.build-button:hover {
+  background-color: #0055aa; /* button_hover */
+  border-color: var(--text-secondary);
+}
+
+.build-button .button-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.build-button .hotkey {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  border: 1px solid var(--panel-border);
+  background-color: rgba(0, 0, 0, 0.3);
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.build-button .button-cost {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.build-button .cost-icon {
+  width: 10px;
+  height: 14px;
+  background-color: #33ffcc; /* resource color */
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.build-button .button-desc {
+  font-size: 0.8rem;
+  color: #aaddff; /* Lighter primary text */
+}
+
+.build-button.disabled {
+  background-color: #222233; /* button_disabled */
+  color: #777;
+  cursor: not-allowed;
+  border-color: #555;
+}
+
+.build-button.disabled .button-label,
+.build-button.disabled .button-cost,
+.build-button.disabled .button-desc,
+.build-button.disabled .hotkey {
+  color: #777 !important;
+}
+
+/* Settings Button & Modal Styling */
+#settings-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.8rem;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+  padding: 0;
+  margin-left: 1rem;
+}
+
+#settings-button:hover {
+  color: var(--text-primary);
+  transform: rotate(45deg);
+}
+
+/* Modal Overlay */
+#settings-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-in-out;
+}
+
+#settings-modal.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Modal Content Box */
+.modal-content {
+  width: 350px;
+  background-color: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 0 20px rgba(0, 170, 255, 0.6);
+  text-align: center;
+  color: var(--text-primary);
+  transform: scale(0.9);
+  transition: transform 0.3s ease-in-out;
+}
+
+#settings-modal.visible .modal-content {
+  transform: scale(1);
+}
+
+.modal-content h2 {
+  color: var(--text-secondary);
+  margin-top: 0;
+  font-size: 1.5rem;
+}
+
+.modal-content p {
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.modal-actions button {
+  background-color: var(--panel-border);
+  color: var(--panel-bg);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-family);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.modal-actions button:hover {
+  background-color: var(--text-secondary);
+  color: #000;
+} 

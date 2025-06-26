@@ -2,13 +2,36 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Space Miner Phaser</title>
+    <title>Edge World Miners</title>
+    <!-- Link to a new CSS file for UI styling -->
+    <link rel="stylesheet" href="src/styles/ui.css">
     <style>
-      body { margin: 0; overflow: hidden; background: #000; }
+      body { margin: 0; overflow: hidden; background: #000; font-family: 'Rajdhani', sans-serif; }
       canvas { display: block; }
     </style>
   </head>
   <body>
+    <!-- Main application container using Flexbox for layout -->
+    <div id="app-container">
+        <!-- New Left Navigation Panel -->
+        <div id="left-nav">
+            <h1 class="game-title">Edge World Miners</h1>
+            <!-- Future content: user profile, global stats, etc. -->
+        </div>
+
+        <!-- Container for the game canvas and its UI overlay -->
+        <div id="game-area-container">
+            <!-- The Phaser canvas will be injected here by game.js -->
+            <div id="game-container"></div>
+            
+            <!-- The UI overlay will sit on top of the game canvas -->
+            <div id="ui-overlay">
+                <!-- All in-game UI (HUD, build menu, modals) will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- The game script remains the same -->
     <script type="module" src="src/game.js"></script>
   </body>
 </html>

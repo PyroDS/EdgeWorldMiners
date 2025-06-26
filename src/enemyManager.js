@@ -603,10 +603,24 @@ export class EnemyManager {
     return {
       currentWave: this.currentWave,
       isActive: this.isWaveActive,
-      enemiesLeft: this.enemiesLeftToSpawn,
-      enemiesAlive: this.enemies.length,
-      breakTimer: this.isWaveActive ? 0 : this.waveBreakTimer,
-      breakDuration: this.WAVE_SETTINGS.BREAK_DURATION
+      enemiesLeftToSpawn: this.enemiesLeftToSpawn
     };
+  }
+  
+  getEnemyTypeCounts() {
+    const counts = {
+      purple: 0,
+      red: 0
+    };
+
+    for (const enemy of this.enemies) {
+      if (enemy.tier === 'SHOOTER') {
+        counts.purple++;
+      } else {
+        counts.red++;
+      }
+    }
+    
+    return counts;
   }
 } 
