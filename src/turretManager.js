@@ -24,10 +24,11 @@ import { MacroTurret } from './turrets/MacroTurret.js';
 // -------------------------------------------------------------
 
 export class TurretManager {
-  constructor(scene, resourceManager, terrainManager) {
+  constructor(scene, resourceManager, terrainManager, enemyManager = null) {
     this.scene = scene;
     this.resourceManager = resourceManager;
     this.terrainManager = terrainManager;
+    this.enemyManager = enemyManager;
     this.turrets = [];
     this.projectiles = [];
     this.enemies = []; // This will store enemies when they are added to the game
@@ -68,6 +69,13 @@ export class TurretManager {
     
     const turret = new MacroTurret(this.scene, this, x, y);
     this.turrets.push(turret);
+
+    // Register with EnemyManager
+    if (this.enemyManager) {
+      turret.priorityTag = 'TURRET';
+      this.enemyManager.registerTarget(turret);
+    }
+
     return true;
   }
   
@@ -284,6 +292,11 @@ export class TurretManager {
   destroyTurret(turret) {
     turret.active = false;
     
+    // Unregister from EnemyManager
+    if (this.enemyManager) {
+      this.enemyManager.unregisterTarget(turret);
+    }
+    
     // Explosion effect
     const explosion = this.scene.add.circle(turret.x, turret.y, 30, 0xff6600, 0.8);
     this.scene.tweens.add({
@@ -344,5 +357,14 @@ export class TurretManager {
 
   getTurretCount() {
     return this.turrets.filter(turret => turret.active).length;
+  }
+
+  // Setter to inject EnemyManager after construction
+  setEnemyManager(em) {
+    this.enemyManager = em;
+    for (const turret of this.turrets) {
+      if (!turret.priorityTag) turret.priorityTag = 'TURRET';
+      this.enemyManager.registerTarget(turret);
+    }
   }
 } 

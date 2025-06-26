@@ -389,22 +389,136 @@ export class UI {
 
   pauseGame() {
     this.scene.isGamePaused = true;
-    // We could also pause the physics engine if needed:
-    // this.scene.physics.pause();
+    
+    // Pause enemy sprite animations and physics
+    if (this.scene.enemyManager && this.scene.enemyManager.enemies) {
+      this.scene.enemyManager.enemies.forEach(enemy => {
+        if (enemy.sprite) {
+          // Store velocity to restore later
+          if (enemy.sprite.body) {
+            enemy.prevVelocityX = enemy.sprite.body.velocity.x;
+            enemy.prevVelocityY = enemy.sprite.body.velocity.y;
+            enemy.sprite.body.setVelocity(0, 0);
+          }
+          
+          // Pause animations if any
+          if (enemy.sprite.anims) {
+            enemy.sprite.anims.pause();
+          }
+        }
+      });
+    }
+    
+    // Pause enemy projectiles
+    if (this.scene.enemyManager && this.scene.enemyManager.projectiles) {
+      this.scene.enemyManager.projectiles.forEach(projectile => {
+        if (projectile && projectile.sprite && projectile.sprite.body) {
+          // Store velocity to restore later
+          projectile.prevVelocityX = projectile.sprite.body.velocity.x;
+          projectile.prevVelocityY = projectile.sprite.body.velocity.y;
+          // Stop the projectile movement
+          projectile.sprite.body.setVelocity(0, 0);
+        }
+      });
+    }
+    
+    // Pause turret projectiles
+    if (this.scene.turretManager && this.scene.turretManager.projectiles) {
+      this.scene.turretManager.projectiles.forEach(projectile => {
+        if (projectile && projectile.sprite && projectile.sprite.body) {
+          // Store velocity to restore later
+          projectile.prevVelocityX = projectile.sprite.body.velocity.x;
+          projectile.prevVelocityY = projectile.sprite.body.velocity.y;
+          // Stop the projectile movement
+          projectile.sprite.body.setVelocity(0, 0);
+        }
+      });
+    }
+    
+    // Pause carrier projectiles
+    if (this.scene.carrier && this.scene.carrier.projectiles) {
+      this.scene.carrier.projectiles.forEach(projectile => {
+        if (projectile && projectile.body) {
+          // Store velocity to restore later
+          projectile.prevVelocityX = projectile.body.velocity.x;
+          projectile.prevVelocityY = projectile.body.velocity.y;
+          // Stop the projectile movement
+          projectile.body.setVelocity(0, 0);
+        }
+      });
+    }
   }
 
   resumeGame() {
     this.scene.isGamePaused = false;
-    // this.scene.physics.resume();
+    
+    // Resume enemy sprite animations and physics
+    if (this.scene.enemyManager && this.scene.enemyManager.enemies) {
+      this.scene.enemyManager.enemies.forEach(enemy => {
+        if (enemy.sprite) {
+          // Restore velocity
+          if (enemy.sprite.body && enemy.prevVelocityX !== undefined) {
+            enemy.sprite.body.setVelocity(
+              enemy.prevVelocityX || 0,
+              enemy.prevVelocityY || 0
+            );
+          }
+          
+          // Resume animations if any
+          if (enemy.sprite.anims) {
+            enemy.sprite.anims.resume();
+          }
+        }
+      });
+    }
+    
+    // Resume enemy projectiles
+    if (this.scene.enemyManager && this.scene.enemyManager.projectiles) {
+      this.scene.enemyManager.projectiles.forEach(projectile => {
+        if (projectile && projectile.sprite && projectile.sprite.body && projectile.prevVelocityX !== undefined) {
+          // Restore velocity
+          projectile.sprite.body.setVelocity(
+            projectile.prevVelocityX || 0,
+            projectile.prevVelocityY || 0
+          );
+        }
+      });
+    }
+    
+    // Resume turret projectiles
+    if (this.scene.turretManager && this.scene.turretManager.projectiles) {
+      this.scene.turretManager.projectiles.forEach(projectile => {
+        if (projectile && projectile.sprite && projectile.sprite.body && projectile.prevVelocityX !== undefined) {
+          // Restore velocity
+          projectile.sprite.body.setVelocity(
+            projectile.prevVelocityX || 0,
+            projectile.prevVelocityY || 0
+          );
+        }
+      });
+    }
+    
+    // Resume carrier projectiles
+    if (this.scene.carrier && this.scene.carrier.projectiles) {
+      this.scene.carrier.projectiles.forEach(projectile => {
+        if (projectile && projectile.body && projectile.prevVelocityX !== undefined) {
+          // Restore velocity
+          projectile.body.setVelocity(
+            projectile.prevVelocityX || 0,
+            projectile.prevVelocityY || 0
+          );
+        }
+      });
+    }
   }
   
   updateWaveStatus() {
     if (!this.scene.enemyManager || !this.waveText) return;
 
     const status = this.scene.enemyManager.getWaveStatus();
-    this.waveText.innerText = `WAVE ${status.currentWave || 0}`;
+    this.waveText.innerText = `WAVE ${status.wave || 0}`;
     
-    if (status.isActive) {
+    if (status.active) {
       this.waveStatusText.innerText = 'ACTIVE';
       this.waveStatusText.className = 'active';
     } else {
@@ -414,8 +528,13 @@ export class UI {
 
     // Update enemy counters
     const enemyCounts = this.scene.enemyManager.getEnemyTypeCounts();
-    this.enemyRedCountText.innerText = enemyCounts.red.toString();
-    this.enemyPurpleCountText.innerText = enemyCounts.purple.toString();
+    
+    // Calculate total for red enemies (SMALL, MEDIUM, LARGE)
+    const redCount = (enemyCounts.SMALL || 0) + (enemyCounts.MEDIUM || 0) + (enemyCounts.LARGE || 0);
+    this.enemyRedCountText.innerText = redCount.toString();
+    
+    // Purple enemies are SHOOTER type
+    this.enemyPurpleCountText.innerText = (enemyCounts.SHOOTER || 0).toString();
   }
   
   updateWaveProgress(progress, isActive) {
