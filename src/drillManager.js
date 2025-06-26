@@ -265,19 +265,42 @@ export class DrillManager {
   
   // Find closest drill to a point (for enemy targeting)
   findClosestDrill(x, y) {
-    let closest = null;
-    let closestDistance = Infinity;
+    const aliveDrills = this.getTargetableDrills();
+    if (aliveDrills.length === 0) return null;
     
-    this.drills.forEach(drill => {
-      if (drill.isAlive) {
-        const distance = Math.sqrt(Math.pow(drill.x - x, 2) + Math.pow(drill.y - y, 2));
-        if (distance < closestDistance) {
-          closest = drill;
-          closestDistance = distance;
-        }
+    // Find the closest drill from the list of alive drills
+    let closestDrill = null;
+    let minDistance = Infinity;
+    
+    aliveDrills.forEach(drill => {
+      const distance = Math.sqrt(Math.pow(drill.x - x, 2) + Math.pow(drill.y - y, 2));
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestDrill = drill;
       }
     });
     
-    return closest;
+    return closestDrill;
+  }
+  
+  getDrillCount() {
+    return this.drills.filter(d => d.isAlive).length;
+  }
+  
+  getLowestHealthRatio() {
+    const aliveDrills = this.drills.filter(d => d.isAlive);
+    if (aliveDrills.length === 0) {
+      return 1; // Return 100% if no drills exist
+    }
+    
+    let lowestRatio = 1;
+    for (const drill of aliveDrills) {
+      const ratio = drill.health / this.DRILL_MAX_HEALTH;
+      if (ratio < lowestRatio) {
+        lowestRatio = ratio;
+      }
+    }
+    
+    return lowestRatio;
   }
 }

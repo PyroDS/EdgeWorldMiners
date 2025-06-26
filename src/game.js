@@ -12,8 +12,12 @@ let drillManager, resourceManager, terrainManager, turretManager, enemyManager, 
 
 const config = {
   type: Phaser.AUTO,
-  width: 1280,
-  height: 800,
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    parent: 'game-container',
+    width: '100%',
+    height: '100%'
+  },
   backgroundColor: '#3399ff',
   physics: {
     default: 'arcade',
@@ -88,6 +92,24 @@ function create() {
   // Add key to toggle turret info
   this.input.keyboard.addKey('T').on('down', () => {
     this.turretInfo.setVisible(!this.turretInfo.visible);
+  });
+
+  // Handle camera resizing
+  this.scale.on('resize', (gameSize) => {
+    // The Scale Manager has already resized automatically based on our config.
+    // We just need to update components that depend on the new size, like the camera.
+    this.cameras.main.setSize(gameSize.width, gameSize.height);
+    
+    // Ensure the camera scroll isn't out of bounds after resize.
+    if (this.cameras.main.scrollX > this.cameras.main.getBounds().width - gameSize.width) {
+        this.cameras.main.scrollX = this.cameras.main.getBounds().width - gameSize.width;
+    }
+    if (this.cameras.main.scrollY > this.cameras.main.getBounds().height - gameSize.height) {
+        this.cameras.main.scrollY = this.cameras.main.getBounds().height - gameSize.height;
+    }
+
+    // Re-apply camera bounds to refresh internal calculations after resize
+    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
   });
 
   // Set camera bounds to match the terrain dimensions

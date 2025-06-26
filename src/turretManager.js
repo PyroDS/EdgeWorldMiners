@@ -341,4 +341,8 @@ export class TurretManager {
   getTurrets() {
     return this.turrets.filter(turret => turret.active);
   }
+
+  getTurretCount() {
+    return this.turrets.filter(turret => turret.active).length;
+  }
 } 
