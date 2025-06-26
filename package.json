@@ -8,9 +8,11 @@
     "dev": "parcel index.html"
   },
   "dependencies": {
-    "phaser": "^3.70.0"
+    "phaser": "^3.70.0",
+    "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
-    "parcel": "^2.9.3"
+    "parcel": "^2.9.3",
+    "process": "^0.11.10"
   }
 }

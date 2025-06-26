@@ -1,5 +1,6 @@
 // Sci-Fi UI System for Edge World Miners
 import Phaser from 'phaser';
+import { FocusMode } from './focusMode.js'
 
 export class UI {
   constructor(scene, onSelectBuilding) {
@@ -42,6 +43,9 @@ export class UI {
     this.createKeyBindings();
     // Settings button & modal
     this.createSettingsUI();
+
+    // Focus mode (magnifier) controller
+    this.focusMode = new FocusMode(scene, this.uiOverlay);
   }
   
   // Get building costs - prevents circular dependencies

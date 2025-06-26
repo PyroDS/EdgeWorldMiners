@@ -58,7 +58,8 @@ The application's functionality is divided into several managers, each responsib
 
 *   **Location**: `src/ui.js`
 *   **Description**: This file is responsible for creating and managing all the UI elements, such as resource displays, build menus, and wave information.
-*   **Scalability/Editing**: To add new UI elements, you can add creation and update logic to `createUI()` and its related functions. The UI is built using Phaser's built-in game object creation methods, but also uses HTML elements for some parts of the interface.
+*   **Architecture Update (2025 World/UI Overhaul)**: The UI layer is now rendered as a dedicated **HTML/CSS overlay** (`index.html` + `src/styles/ui.css`).  The `UI` class in `src/ui.js` creates and manipulates DOM elements inside the `#ui-overlay` container rather than Phaser Game Objects.  This enables full responsiveness—resizing the browser window no longer scales game sprites—and vastly simplifies styling with modern CSS.
+*   **Scalability/Editing**: To add or modify UI components, edit `src/ui.js` to create the required DOM nodes (e.g., `document.createElement('div')`) and style them in `src/styles/ui.css`.  Because each UI element lives in the DOM, you can leverage standard web tooling (Flexbox, Grid, media queries) without touching Phaser internals.
 
 ## Project Dependencies
 

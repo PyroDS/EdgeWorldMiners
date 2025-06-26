@@ -1,20 +1,83 @@
 import Phaser from 'phaser';
 
-// Creates a hovering sci-fi carrier near the terrain surface at the supplied X position.
-// The carrier is generated from vector graphics, converted to a texture, then used as a sprite.
-// It spawns "hoverHeight" pixels above the first solid terrain tile so it always appears to float.
-export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 120) {
-  // Choose a random X within the terrain bounds, leaving a small margin so the sprite stays fully on-screen.
-  const margin = 150; // account for carrier width
-  const carrierX = Phaser.Math.Between(margin, Math.max(margin, worldWidth - margin));
+// --- Configuration/constants ---
+// Height (in pixels) of the generated carrier sprite.
+// Formula mirrors the size used when drawing the texture below: PAD_TOP + HULL_HEIGHT + 20
+const CARRIER_SPRITE_HEIGHT = 20 + 80 + 20; // 120px
 
-  // Determine surface height under the chosen X position.
-  let surfaceY = terrainManager?.getSurfaceY(carrierX);
-  if (surfaceY === null || surfaceY === undefined) {
-    surfaceY = 400; // fallback so we do not place off-screen if terrain missing.
+/**
+ * Attempts to find a safe X/Y position for the carrier so it hovers roughly at sea-level
+ * while remaining at least `hoverHeight` pixels above the terrain column directly beneath it.
+ *
+ * @param {Phaser.Scene} scene – The current Phaser scene (used only for RNG helper).
+ * @param {TerrainManager} terrainManager – Instance providing `getSurfaceY()` and `seaLevelRow`.
+ * @param {number} worldWidth – The total width of the world.
+ * @param {number} hoverHeight – Desired clearance from the terrain surface.
+ * @returns {{x:number,y:number}} – Chosen world coordinates for the carrier.
+ */
+function findHoverPosition(scene, terrainManager, worldWidth, hoverHeight) {
+  const margin = 150; // ensure full sprite visibility within camera bounds
+  const seaLevelY = (terrainManager?.seaLevelRow ?? 40) * (terrainManager?.tileSize ?? 20);
+
+  const MAX_ATTEMPTS = 80;
+  const ACCEPTABLE_SURFACE_VARIANCE = 300; // how far the terrain surface can deviate from sea-level (soft cut-off)
+
+  let bestCandidate = null;
+  let bestDiff = Infinity;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const x = Phaser.Math.Between(margin, Math.max(margin, worldWidth - margin));
+
+    // ---- Evaluate terrain clearance across the full carrier width ----
+    const HULL_WIDTH = 300; // must match width used later for drawing
+    const halfW = HULL_WIDTH * 0.5;
+    const sampleXs = [x - halfW, x, x + halfW];
+
+    let highestGround = Infinity;
+    for (const sx of sampleXs) {
+      const colSurface = terrainManager?.getSurfaceY(sx);
+      if (colSurface != null && colSurface < highestGround) {
+        highestGround = colSurface;
+      }
+    }
+
+    if (highestGround === Infinity) continue; // no valid surface – skip
+
+    // Prefer terrain columns whose average surface is close to sea-level so the carrier is nicely framed.
+    const withinBand = Math.abs(highestGround - seaLevelY) <= ACCEPTABLE_SURFACE_VARIANCE;
+
+    // Compute tentative Y – ensure the sprite bottom remains above the HIGHEST terrain surface across width.
+    const tentativeY = highestGround - hoverHeight;
+    const spriteBottom = tentativeY + CARRIER_SPRITE_HEIGHT / 2;
+
+    // Must maintain at least 4px clearance above the highest ground.
+    if (spriteBottom + 4 >= highestGround) continue;
+
+    // Keep the candidate whose surface is closest to sea-level.
+    const diff = Math.abs(highestGround - seaLevelY);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestCandidate = { x, y: tentativeY };
+    }
+
+    // If within soft band, return immediately (good enough)
+    if (withinBand) {
+      return { x, y: tentativeY };
+    }
   }
 
-  const carrierY = surfaceY - hoverHeight;
+  // If we failed to find a sea-level position, use the first safe fallback or center of the world.
+  if (bestCandidate) return bestCandidate;
+  const defaultX = worldWidth * 0.5;
+  const defaultSurface = terrainManager?.getSurfaceY(defaultX) ?? seaLevelY;
+  return { x: defaultX, y: defaultSurface - hoverHeight };
+}
+
+// Creates a hovering sci-fi carrier. The carrier spawns near sea-level but always
+// maintains `hoverHeight` pixels of clearance above the terrain directly beneath it.
+export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 120) {
+  // Obtain a safe spawn coordinate.
+  const { x: carrierX, y: carrierY } = findHoverPosition(scene, terrainManager, worldWidth, hoverHeight);
 
   // Build a simple sci-fi looking ship with Phaser graphics.
   const g = scene.add.graphics();
@@ -55,6 +118,9 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
   // Create the sprite using the generated texture.
   const carrier = scene.add.sprite(carrierX, carrierY, textureKey);
   carrier.setOrigin(0.5, 0.5);
+
+  // Persist hover parameters for dynamic altitude correction
+  carrier.hoverHeight = hoverHeight;
 
   // Physics body so cargo can target it.
   scene.physics.add.existing(carrier);
@@ -135,6 +201,22 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
 
   // Update loop for carrier (called by main scene)
   carrier.update = function() {
+    // --- Maintain altitude above terrain surface ---
+    if (terrainManager && typeof terrainManager.getSurfaceY === 'function') {
+      const halfW = (this.displayWidth || this.width || 0) * 0.5;
+      const samples = [this.x - halfW, this.x, this.x + halfW];
+      let highestGround = Infinity;
+      for (const sx of samples) {
+        const y = terrainManager.getSurfaceY(sx);
+        if (y != null && y < highestGround) {
+          highestGround = y;
+        }
+      }
+      const desiredY = (highestGround !== Infinity ? highestGround - this.hoverHeight : this.y);
+      // Smoothly move toward desired altitude
+      this.y = Phaser.Math.Linear(this.y, desiredY, 0.06);
+    }
+
     // update turret barrels & firing
     for (const turret of this.miniTurrets) {
       // keep barrel positioned
@@ -220,14 +302,31 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
     }
   };
 
-  // Subtle hover bobbing tween for life.
+  // Subtle hover bobbing by oscillating a dummy "bobOffset" property
+  carrier.bobOffset = 0;
   scene.tweens.add({
     targets: carrier,
-    y: carrierY + 5,
+    bobOffset: 5,
     yoyo: true,
     repeat: -1,
     duration: 2000,
-    ease: 'Sine.easeInOut'
+    ease: 'Sine.easeInOut',
+    onUpdate: () => {
+      // keep vertical position centred at dynamically corrected base plus bobOffset
+      if (terrainManager && typeof terrainManager.getSurfaceY === 'function') {
+        const halfW = (carrier.displayWidth || carrier.width || 0) * 0.5;
+        const samples = [carrier.x - halfW, carrier.x, carrier.x + halfW];
+        let highestGround = Infinity;
+        for (const sx of samples) {
+          const y = terrainManager.getSurfaceY(sx);
+          if (y != null && y < highestGround) {
+            highestGround = y;
+          }
+        }
+        const baseY = (highestGround !== Infinity ? highestGround - carrier.hoverHeight : carrier.y);
+        carrier.y = baseY + carrier.bobOffset;
+      }
+    }
   });
 
   return carrier;

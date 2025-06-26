@@ -407,4 +407,98 @@
 .modal-actions button:hover {
   background-color: var(--text-secondary);
   color: #000;
+}
+
+/* Focus Mode Cursor */
+#focus-cursor {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  border: 2px solid var(--text-secondary);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0, 170, 255, 0.6);
+  z-index: 40;
+}
+#focus-cursor::before,
+#focus-cursor::after {
+  content: "";
+  position: absolute;
+  background: var(--text-secondary);
+}
+#focus-cursor::before {
+  top: 50%;
+  left: 2px;
+  right: 2px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+#focus-cursor::after {
+  left: 50%;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+/* Focus Info Box */
+#focus-info {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(10, 26, 42, 0.95);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: var(--font-family);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  z-index: 41;
+  white-space: nowrap;
+  box-shadow: 0 0 8px rgba(0, 170, 255, 0.6);
+}
+#focus-info .fi-label {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+#focus-info .fi-details {
+  font-size: 0.75rem;
+}
+
+/* === Loading Overlay === */
+#loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 50; /* On top of everything */
+}
+
+#loading-overlay .loading-text {
+  font-family: var(--font-family);
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+#loading-overlay .loading-bar {
+  width: 60%;
+  max-width: 600px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--panel-border);
+  overflow: hidden;
+}
+
+#loading-overlay .loading-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--panel-border);
+  transition: width 0.25s ease-out;
 } 
