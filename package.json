@@ -1,0 +1,14 @@
+{
+  "name": "space-miner-phaser",
+  "version": "1.0.0",
+  "description": "Sci-fi voxel mining game built in Phaser 3",
+  "scripts": {
+    "start": "parcel index.html --open"
+  },
+  "dependencies": {
+    "phaser": "^3.70.0"
+  },
+  "devDependencies": {
+    "parcel": "^2.9.3"
+  }
+}
