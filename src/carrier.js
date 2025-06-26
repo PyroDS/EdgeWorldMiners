@@ -66,9 +66,13 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
   carrier.health = carrier.maxHealth;
 
   // Damage function with flash feedback
-  carrier.damage = function(amount = 1) {
+  carrier.takeDamage = function(amount = 1) {
     this.health -= amount;
     if (this.health <= 0) {
+      // Unregister so enemies no longer target a destroyed carrier
+      if (this.enemyManager) {
+        this.enemyManager.unregisterTarget(this);
+      }
       // TODO: implement game-over logic – for now destroy sprite
       this.destroy();
       return;
@@ -80,6 +84,9 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
       this.setTint(originalTint);
     });
   };
+  
+  // Alias for backward compatibility
+  carrier.damage = carrier.takeDamage;
 
   // Mini-turret stats
   const MINI_STATS = {
@@ -167,13 +174,34 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
         for (const enemy of this.enemyManager.getEnemies()) {
           const dist = Phaser.Math.Distance.Between(proj.x, proj.y, enemy.x, enemy.y);
           if (dist < enemy.size) {
-            enemy.health -= proj.getData('damage');
-            if (enemy.health <= 0) {
-              // remove enemy via enemyManager method for consistency
-              const idx = this.enemyManager.getEnemies().indexOf(enemy);
-              if (idx !== -1) this.enemyManager.damageEnemy(idx, 0); // triggers cleanup
+            const wasDestroyed = enemy.takeDamage(proj.getData('damage'));
+            
+            if (!wasDestroyed) {
+              const damageText = scene.add.text(
+                enemy.x, 
+                enemy.y, 
+                proj.getData('damage').toString(), 
+                { 
+                  fontFamily: 'Arial', 
+                  fontSize: '16px', 
+                  color: '#ffff00',
+                  stroke: '#000000',
+                  strokeThickness: 2
+                }
+              );
+              damageText.setOrigin(0.5);
+              
+              scene.tweens.add({
+                targets: damageText,
+                y: enemy.y - 30,
+                alpha: 0,
+                duration: 800,
+                onComplete: () => {
+                  damageText.destroy();
+                }
+              });
             }
-            // impact visual
+            
             const impact = scene.add.circle(proj.x, proj.y, 6, MINI_STATS.COLOR, 0.8);
             impact.setDepth(100);
             scene.tweens.add({

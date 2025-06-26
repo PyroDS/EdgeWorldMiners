@@ -2,7 +2,7 @@ import { CargoManager } from './cargoManager.js';
 // Manages drill placement, mining intervals, and cargo transport
 
 export class DrillManager {
-  constructor(scene, resourceManager, terrainManager, carrier, enemyManager) {
+  constructor(scene, resourceManager, terrainManager, carrier, enemyManager = null) {
     this.scene = scene;
     this.resourceManager = resourceManager;
     this.terrainManager = terrainManager;
@@ -101,8 +101,19 @@ export class DrillManager {
       y,
       reachedBottom: false,
       health: this.DRILL_MAX_HEALTH,
-      isAlive: true
+      isAlive: true,
+      priorityTag: 'DRILL'
     });
+
+    // Register with EnemyManager for targeting
+    if (this.enemyManager) {
+      const drillRef = this.drills[this.drills.length - 1];
+      // Ensure a generic takeDamage is present so enemies can call it directly
+      if (!drillRef.takeDamage) {
+        drillRef.takeDamage = (amt) => this.damageDrill(drillRef, amt);
+      }
+      this.enemyManager.registerTarget(drillRef);
+    }
     return true;
   }
 
@@ -182,6 +193,11 @@ export class DrillManager {
     setTimeout(() => {
       this.explodingDrills.delete(drill);
     }, 100);
+
+    // Unregister from EnemyManager
+    if (this.enemyManager) {
+      this.enemyManager.unregisterTarget(drill);
+    }
   }
   
   // Create explosion effect
@@ -302,5 +318,18 @@ export class DrillManager {
     }
     
     return lowestRatio;
+  }
+
+  // Add a setter to inject EnemyManager after construction
+  setEnemyManager(em) {
+    this.enemyManager = em;
+    // Register existing drills
+    for (const drill of this.drills) {
+      if (!drill.priorityTag) drill.priorityTag = 'DRILL';
+      if (!drill.takeDamage) {
+        drill.takeDamage = (amt) => this.damageDrill(drill, amt);
+      }
+      this.enemyManager.registerTarget(drill);
+    }
   }
 }

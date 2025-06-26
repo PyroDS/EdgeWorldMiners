@@ -1,47 +1,62 @@
+/**
+ * enemyManager.js
+ * ----------------------------------------------------------------------------
+ * Manages the creation, updating, and destruction of all enemies in the game.
+ * 
+ * This manager is responsible for:
+ * 1. Spawning enemies based on wave progression
+ * 2. Managing the wave system (timing, difficulty scaling)
+ * 3. Updating all active enemies
+ * 4. Handling projectiles fired by shooter enemies
+ * 5. Providing helper methods for targeting and damage
+ * 
+ * After the enemy overhaul, this manager delegates most behavior to the
+ * individual enemy classes, making it easier to add new enemy types.
+ * 
+ * ADDING A NEW ENEMY TYPE:
+ * 1. Create a new class in src/enemies/ that extends BaseEnemy
+ * 2. Add spawning logic in this manager (similar to spawnMeleeEnemy/spawnShooterEnemy)
+ * 3. Update the wave spawn logic in spawnEnemy() to include the new type
+ * 
+ * RELATIONSHIP WITH OTHER COMPONENTS:
+ * - Uses enemy classes from src/enemies/
+ * - Interacts with DrillManager, TurretManager, and TerrainManager
+ * - Provides enemy data to UI components
+ * 
+ * @author EdgeWorldMiners Team
+ */
+
+import { MeleeEnemy } from './enemies/MeleeEnemy.js';
+import { ShooterEnemy } from './enemies/ShooterEnemy.js';
+
 export class EnemyManager {
+  /**
+   * Creates a new enemy manager
+   * 
+   * @param {Phaser.Scene} scene - The Phaser scene
+   * @param {TerrainManager} terrainManager - Reference to the terrain manager
+   * @param {DrillManager} drillManager - Reference to the drill manager (can be null)
+   * @param {TurretManager} turretManager - Reference to the turret manager (can be null)
+   * @param {Carrier} carrier - Reference to the carrier (can be null)
+   */
   constructor(scene, terrainManager, drillManager = null, turretManager = null, carrier = null) {
     this.scene = scene;
     this.terrainManager = terrainManager;
     this.drillManager = drillManager;
     this.turretManager = turretManager;
     this.carrier = carrier;
+    
+    // Array of all active enemy instances
     this.enemies = [];
+    
+    // --- NEW: master list of targetable player objects ---
+    this.targetables = [];
     
     // Store projectiles fired by shooter-type enemies
     this.projectiles = [];
     
-    // Enemy size tiers
-    this.ENEMY_TIERS = {
-      SMALL: {
-        HEALTH: 30,
-        SPEED: 70,
-        SIZE: 15,
-        DAMAGE: 3,
-        COLOR: 0xff0000,
-      },
-      MEDIUM: {
-        HEALTH: 60,
-        SPEED: 50,
-        SIZE: 25,
-        DAMAGE: 5,
-        COLOR: 0xff3300,
-      },
-      LARGE: {
-        HEALTH: 120,
-        SPEED: 35,
-        SIZE: 40,
-        DAMAGE: 10,
-        COLOR: 0xff6600,
-      },
-      // --- New ranged shooter enemy ---
-      SHOOTER: {
-        HEALTH: 80,
-        SPEED: 60,
-        SIZE: 20,
-        DAMAGE: 6,
-        COLOR: 0x9933ff // purple
-      }
-    };
+    // General-purpose timer for periodic actions
+    this.timer = 0;
     
     // Wave system settings
     this.WAVE_SETTINGS = {
@@ -49,26 +64,9 @@ export class EnemyManager {
       ENEMIES_INCREMENT: 3,
       BREAK_DURATION: 600, // frames between waves
       SPAWN_INTERVAL: 60, // frames between enemy spawns in a wave
-      TERRAIN_DAMAGE_RADIUS: 20,
-      TERRAIN_DAMAGE_STRENGTH: 5,
-      ATTACK_RANGE: 100,
-      ATTACK_COOLDOWN: 60,
-      PATROL_DURATION: 180, // frames before changing patrol direction
-      PATROL_SPEED_FACTOR: 0.8 // How much of normal speed is used for patrol movement
     };
     
-    // Config for shooter enemy projectiles
-    this.SHOOTER_CONFIG = {
-      PROJECTILE_SPEED: 120,
-      PROJECTILE_DAMAGE: 8,
-      PROJECTILE_AOE: 5,
-      // Shooter accuracy (0-1). Lower accuracy => wider spread
-      ACCURACY: 0.75,
-      TERRAIN_DAMAGE_STRENGTH: 4,
-      ATTACK_RANGE: 500,
-      ATTACK_COOLDOWN: 120
-    };
-    
+    // Wave state
     this.currentWave = 0;
     this.enemiesLeftToSpawn = 0;
     this.spawnTimer = 0;
@@ -91,6 +89,9 @@ export class EnemyManager {
     this.carrier = carrier;
   }
   
+  /**
+   * Starts a new wave of enemies
+   */
   startWave() {
     this.currentWave++;
     this.enemiesLeftToSpawn = this.WAVE_SETTINGS.INITIAL_ENEMIES + 
@@ -99,10 +100,13 @@ export class EnemyManager {
     console.log(`Wave ${this.currentWave} started! Enemies: ${this.enemiesLeftToSpawn}`);
   }
   
+  /**
+   * Spawns an enemy based on wave progression and random chance
+   */
   spawnEnemy() {
     if (this.enemiesLeftToSpawn <= 0) return;
     
-    // Chance to spawn the new purple shooter enemy
+    // Chance to spawn the shooter enemy
     const shooterChance = Math.min(0.15 + (this.currentWave * 0.02), 0.4);
     if (Math.random() < shooterChance) {
       this.spawnShooterEnemy();
@@ -110,6 +114,15 @@ export class EnemyManager {
       return;
     }
     
+    // Spawn a melee enemy
+    this.spawnMeleeEnemy();
+    this.enemiesLeftToSpawn--;
+  }
+  
+  /**
+   * Spawns a melee enemy (SMALL, MEDIUM, or LARGE tier)
+   */
+  spawnMeleeEnemy() {
     // Determine enemy tier based on wave and random chance
     let tierChance = Math.random();
     let tierType;
@@ -126,501 +139,554 @@ export class EnemyManager {
       tierType = 'SMALL';
     }
     
-    const tierStats = this.ENEMY_TIERS[tierType];
-    
     // Spawn at random position along the top of the world
     const worldWidth = this.scene.cameras.main.getBounds().right;
     const x = 100 + Math.random() * (worldWidth - 200);
-    const y = -tierStats.SIZE; // Start just above the visible area
+    const y = -30; // Start just above the visible area
     
-    // Create triangle graphics
-    const enemyGraphic = this.scene.add.graphics();
-    enemyGraphic.fillStyle(tierStats.COLOR, 1);
-    
-    // Draw triangle pointing downward
-    enemyGraphic.beginPath();
-    enemyGraphic.moveTo(-tierStats.SIZE/2, -tierStats.SIZE/2);
-    enemyGraphic.lineTo(tierStats.SIZE/2, -tierStats.SIZE/2);
-    enemyGraphic.lineTo(0, tierStats.SIZE/2);
-    enemyGraphic.closePath();
-    enemyGraphic.fillPath();
-    
-    // Convert to sprite
-    const texture = `enemy_${tierType}_${Date.now()}`;
-    enemyGraphic.generateTexture(texture, tierStats.SIZE, tierStats.SIZE);
-    enemyGraphic.destroy();
-    
-    const sprite = this.scene.add.sprite(x, y, texture);
-    this.scene.physics.add.existing(sprite);
+    // Create the enemy instance
+    const enemy = new MeleeEnemy(this.scene, this, x, y, tierType);
     
     // Add to enemies array
-    const enemy = {
-      sprite: sprite,
-      x: x,
-      y: y,
-      health: tierStats.HEALTH,
-      maxHealth: tierStats.HEALTH,
-      speed: tierStats.SPEED,
-      size: tierStats.SIZE,
-      damage: tierStats.DAMAGE,
-      tier: tierType,
-      target: null,
-      targetType: null, // 'drill' or 'turret'
-      attackCooldown: 0,
-      patrolDirection: Math.random() > 0.5 ? 1 : -1, // Random initial patrol direction
-      patrolTimer: Math.floor(Math.random() * this.WAVE_SETTINGS.PATROL_DURATION) // Randomize initial patrol timer
-    };
-    
     this.enemies.push(enemy);
-    this.enemiesLeftToSpawn--;
   }
   
-  // Spawn a purple shooter that enters from the left side and flies horizontally
+  /**
+   * Spawns a shooter enemy that enters from the left or right side
+   */
   spawnShooterEnemy() {
-    const tierStats = this.ENEMY_TIERS.SHOOTER;
-
+    // Determine which side to spawn from
     const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
     const hDir = side === 'LEFT' ? 1 : -1; // horizontal movement direction
 
+    // Calculate spawn position
     const worldBounds = this.scene.cameras.main.getBounds();
-    const x = side === 'LEFT' ? worldBounds.x - tierStats.SIZE : worldBounds.right + tierStats.SIZE;
+    const x = side === 'LEFT' ? worldBounds.x - 30 : worldBounds.right + 30;
     const y = 50 + Math.random() * 100; // near the top of the world
 
-    // Create simple diamond sprite for shooter
-    const g = this.scene.add.graphics();
-    g.fillStyle(tierStats.COLOR, 1);
-    g.beginPath();
-    g.moveTo(0, -tierStats.SIZE / 2);
-    g.lineTo(tierStats.SIZE / 2, 0);
-    g.lineTo(0, tierStats.SIZE / 2);
-    g.lineTo(-tierStats.SIZE / 2, 0);
-    g.closePath();
-    g.fillPath();
-    const textureKey = `enemy_SHOOTER_${Date.now()}`;
-    g.generateTexture(textureKey, tierStats.SIZE, tierStats.SIZE);
-    g.destroy();
-
-    const sprite = this.scene.add.sprite(x, y, textureKey);
-    this.scene.physics.add.existing(sprite);
-
-    const enemy = {
-      sprite,
-      x,
-      y,
-      health: tierStats.HEALTH,
-      maxHealth: tierStats.HEALTH,
-      speed: tierStats.SPEED,
-      size: tierStats.SIZE,
-      damage: tierStats.DAMAGE,
-      tier: 'SHOOTER',
-      isShooter: true,
-      hDir,
-      target: null,
-      targetType: null,
-      attackCooldown: 0
-    };
-
+    // Create the enemy instance
+    const enemy = new ShooterEnemy(this.scene, this, x, y, hDir);
+    
+    // Add to enemies array
     this.enemies.push(enemy);
   }
   
-  // Fire a slow terrain-destroying projectile from shooter enemy toward target
-  spawnShooterProjectile(enemy, targetX, targetY) {
-    // Calculate base angle toward target
-    const baseAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, targetX, targetY);
-
-    // Compute spread based on shooter accuracy
-    const inaccuracy = 1 - (this.SHOOTER_CONFIG.ACCURACY ?? 1);
-    const maxSpread = Math.PI / 4; // 45 degrees max spread for shooter
-    const spreadRange = inaccuracy * maxSpread;
-    const randomOffset = Phaser.Math.FloatBetween(-spreadRange, spreadRange);
-    const finalAngle = baseAngle + randomOffset;
-
-    const projectile = this.scene.add.circle(enemy.x, enemy.y, 4, this.ENEMY_TIERS.SHOOTER.COLOR);
-    this.scene.physics.add.existing(projectile);
-    projectile.body.setVelocity(
-      Math.cos(finalAngle) * this.SHOOTER_CONFIG.PROJECTILE_SPEED,
-      Math.sin(finalAngle) * this.SHOOTER_CONFIG.PROJECTILE_SPEED
-    );
-    projectile.body.setGravity(0, 0);
-
-    this.projectiles.push({
-      sprite: projectile,
-      damage: this.SHOOTER_CONFIG.PROJECTILE_DAMAGE,
-      aoeRange: this.SHOOTER_CONFIG.PROJECTILE_AOE
-    });
+  /**
+   * Updates all enemies, projectiles, and the wave system
+   */
+  update() {
+    // Increment timer
+    this.timer++;
+    
+    // Update wave system
+    this.updateWaveSystem();
+    
+    // Update enemies
+    this.updateEnemies();
+    
+    // Update projectiles
+    this.updateProjectiles();
+    
+    // Periodically clean up invalid targetables
+    if (this.timer % 60 === 0) {
+      this.cleanupTargetables();
+    }
   }
   
-  update() {
-    // Handle wave system
-    if (!this.isWaveActive) {
-      this.waveBreakTimer++;
-      // Start a new wave after break duration
-      if (this.waveBreakTimer >= this.WAVE_SETTINGS.BREAK_DURATION) {
-        this.waveBreakTimer = 0;
-        this.startWave();
-      }
-    } else {
-      // Spawn enemies at intervals during active wave
+  /**
+   * Updates the wave system (spawning, breaks between waves)
+   */
+  updateWaveSystem() {
+    // If wave is active and we have enemies to spawn
+    if (this.isWaveActive && this.enemiesLeftToSpawn > 0) {
       this.spawnTimer++;
-      if (this.spawnTimer >= this.WAVE_SETTINGS.SPAWN_INTERVAL && this.enemiesLeftToSpawn > 0) {
-        this.spawnEnemy();
-        this.spawnTimer = 0;
-      }
       
-      // Check if wave is complete
-      if (this.enemiesLeftToSpawn <= 0 && this.enemies.length === 0) {
-        this.isWaveActive = false;
-        console.log(`Wave ${this.currentWave} complete! Break time...`);
+      // Spawn enemy when timer reaches interval
+      if (this.spawnTimer >= this.WAVE_SETTINGS.SPAWN_INTERVAL) {
+        this.spawnTimer = 0;
+        this.spawnEnemy();
       }
     }
     
-    // Get targetable drills and turrets
-    const drills = this.drillManager ? this.drillManager.getTargetableDrills() : [];
-    const turrets = this.turretManager ? this.turretManager.getTurrets() : [];
+    // Check if wave is complete
+    if (this.isWaveActive && this.enemiesLeftToSpawn <= 0 && this.enemies.length === 0) {
+      console.log(`Wave ${this.currentWave} complete!`);
+      this.isWaveActive = false;
+      this.waveBreakTimer = this.WAVE_SETTINGS.BREAK_DURATION;
+    }
     
-    // Update enemy positions
+    // Start next wave after break
+    if (!this.isWaveActive && this.waveBreakTimer > 0) {
+      this.waveBreakTimer--;
+      
+      if (this.waveBreakTimer <= 0) {
+        this.startWave();
+      }
+    }
+  }
+  
+  /**
+   * Updates all active enemies
+   */
+  updateEnemies() {
+    // Update each enemy and remove destroyed ones
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
       
-      // --- Shooter-specific behaviour ---
-      if (enemy.isShooter) {
-        if (enemy.attackCooldown > 0) enemy.attackCooldown--;
-
-        // Acquire target with priority: Drill > Turret > Carrier
-        if (!enemy.target || (
-            (enemy.targetType === 'drill' && !enemy.target.isAlive) ||
-            (enemy.targetType === 'turret' && !enemy.target.active) ||
-            (enemy.targetType === 'carrier' && (!this.carrier || !this.carrier.active)))) {
-          const closestDrill = drills.length ? this.findClosestTarget(enemy.x, enemy.y, drills) : null;
-          const closestTurret = turrets.length ? this.findClosestTarget(enemy.x, enemy.y, turrets) : null;
-
-          if (closestDrill) {
-            enemy.target = closestDrill;
-            enemy.targetType = 'drill';
-          } else if (closestTurret) {
-            enemy.target = closestTurret;
-            enemy.targetType = 'turret';
-          } else if (this.carrier && this.carrier.active) {
-            enemy.target = this.carrier;
-            enemy.targetType = 'carrier';
-          } else {
-            enemy.target = null;
-            enemy.targetType = null;
-          }
-        }
-
-        // Basic horizontal flight based on direction
-        enemy.x += enemy.hDir * enemy.speed / 60;
-
-        // Gently adjust vertical position toward target if any
-        if (enemy.target) {
-          const dy = enemy.target.y - enemy.y;
-          enemy.y += Math.sign(dy) * (enemy.speed * 0.3 / 60);
-
-          const distance = Phaser.Math.Distance.Between(enemy.x, enemy.y, enemy.target.x, enemy.target.y);
-          if (distance < this.SHOOTER_CONFIG.ATTACK_RANGE && enemy.attackCooldown === 0) {
-            this.spawnShooterProjectile(enemy, enemy.target.x, enemy.target.y);
-            enemy.attackCooldown = this.SHOOTER_CONFIG.ATTACK_COOLDOWN;
-          }
-        }
-
-        // Update sprite
-        enemy.sprite.x = enemy.x;
-        enemy.sprite.y = enemy.y;
-        enemy.sprite.angle = 0;
-
-        // Remove if it exits world bounds depending on direction
-        const bounds = this.scene.cameras.main.getBounds();
-        if ((enemy.hDir === 1 && enemy.x > bounds.right + 100) || (enemy.hDir === -1 && enemy.x < bounds.x - 100)) {
-          enemy.sprite.destroy();
-          this.enemies.splice(i, 1);
-        }
-        continue; // Skip the default behaviour for shooter enemy
+      // Skip inactive enemies
+      if (!enemy.active) {
+        this.enemies.splice(i, 1);
+        continue;
       }
       
-      // Decrease attack cooldown
-      if (enemy.attackCooldown > 0) {
-        enemy.attackCooldown--;
-      }
+      // Update the enemy
+      enemy.update();
       
-      // Check if enemy should find a target
-      if (!enemy.target || 
-          (enemy.targetType === 'drill' && !enemy.target.isAlive) ||
-          (enemy.targetType === 'turret' && !enemy.target.active) ||
-          (enemy.targetType === 'carrier' && (!this.carrier || !this.carrier.active))) {
-        
-        // Determine new target based on priority Turret > Drill > Carrier
-        const closestTurret = turrets.length > 0 ? this.findClosestTarget(enemy.x, enemy.y, turrets) : null;
-        const closestDrill  = drills.length  > 0 ? this.findClosestTarget(enemy.x, enemy.y, drills)  : null;
-
-        if (closestTurret) {
-          enemy.target = closestTurret;
-          enemy.targetType = 'turret';
-        } else if (closestDrill) {
-          enemy.target = closestDrill;
-          enemy.targetType = 'drill';
-        } else if (this.carrier && this.carrier.active) {
-          enemy.target = this.carrier;
-          enemy.targetType = 'carrier';
-        } else {
-          enemy.target = null;
-          enemy.targetType = null;
-        }
-      }
-      
-      // If enemy has a target, move towards it
-      if (enemy.target) {
-        // Get target position
-        const targetX = enemy.target.x;
-        const targetY = enemy.target.y;
-        
-        // Calculate direction to target
-        const dx = targetX - enemy.x;
-        const dy = targetY - enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // If close enough, attack the target
-        if (distance < this.WAVE_SETTINGS.ATTACK_RANGE) {
-          // Attack if cooldown is 0
-          if (enemy.attackCooldown === 0) {
-            if (enemy.targetType === 'drill') {
-              this.drillManager.damageDrill(enemy.target, enemy.damage);
-            } else if (enemy.targetType === 'turret') {
-              this.turretManager.damageTurret(enemy.target, enemy.damage);
-            } else if (enemy.targetType === 'carrier') {
-              if (this.carrier) this.carrier.damage(enemy.damage);
-            }
-            
-            // Damage terrain where target is
-            this.terrainManager.createExplosion(
-              targetX, 
-              targetY,
-              this.WAVE_SETTINGS.TERRAIN_DAMAGE_RADIUS,
-              this.WAVE_SETTINGS.TERRAIN_DAMAGE_STRENGTH
-            );
-            
-            enemy.attackCooldown = this.WAVE_SETTINGS.ATTACK_COOLDOWN;
-            
-            // Visual feedback for attack
-            this.showAttackEffect(enemy, targetX, targetY);
-          }
-        } else {
-          // Move towards target
-          const moveX = (dx / distance) * (enemy.speed / 60);
-          const moveY = (dy / distance) * (enemy.speed / 60);
-          
-          enemy.x += moveX;
-          enemy.y += moveY;
-          
-          enemy.sprite.x = enemy.x;
-          enemy.sprite.y = enemy.y;
-        }
-      } else {
-        // If no target, patrol with horizontal movement pattern
-        
-        // Update patrol timer and change direction if needed
-        enemy.patrolTimer--;
-        if (enemy.patrolTimer <= 0) {
-          enemy.patrolDirection *= -1; // Reverse direction
-          enemy.patrolTimer = this.WAVE_SETTINGS.PATROL_DURATION;
-        }
-        
-        // Move horizontally based on patrol direction
-        const horizontalSpeed = enemy.speed * this.WAVE_SETTINGS.PATROL_SPEED_FACTOR / 60;
-        enemy.x += enemy.patrolDirection * horizontalSpeed;
-        
-        // Move downward more slowly when patrolling
-        const verticalSpeed = enemy.speed * 0.3 / 60;
-        enemy.y += verticalSpeed;
-        
-        // Rotate sprite to face patrol direction
-        const angle = enemy.patrolDirection > 0 ? 30 : -30;
-        enemy.sprite.angle = angle;
-        
-        // Update sprite position
-        enemy.sprite.x = enemy.x;
-        enemy.sprite.y = enemy.y;
-        
-        // If enemy hits world boundary, reverse direction
-        // Use the world bounds instead of hard-coded values
-        if (enemy.x < 50 || enemy.x > this.scene.cameras.main.getBounds().right - 50) {
-          enemy.patrolDirection *= -1;
-        }
-      }
-      
-      // If enemy has gone off bottom of world, remove it
-      if (enemy.y > this.scene.cameras.main.getBounds().bottom) {
-        enemy.sprite.destroy();
+      // Check if enemy is off-screen and should be removed
+      if (this.isEnemyOffScreen(enemy)) {
+        enemy.destroy();
         this.enemies.splice(i, 1);
       }
     }
-    
-    // --- Update shooter projectiles ---
-    for (let p = this.projectiles.length - 1; p >= 0; p--) {
-      const proj = this.projectiles[p];
-      const sprite = proj.sprite;
-
-      const bounds = this.scene.cameras.main.getBounds();
-      if (sprite.x < bounds.x - 50 || sprite.x > bounds.right + 50 ||
-          sprite.y < bounds.y - 50 || sprite.y > bounds.bottom + 50) {
+  }
+  
+  /**
+   * Updates all projectiles
+   */
+  updateProjectiles() {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const projectile = this.projectiles[i];
+      const sprite = projectile.sprite;
+      
+      // Remove projectiles that have gone off world bounds
+      if (this.isProjectileOffScreen(sprite)) {
         sprite.destroy();
-        this.projectiles.splice(p, 1);
+        this.projectiles.splice(i, 1);
         continue;
       }
-
-      // Terrain collision
-      if (this.terrainManager.isSolid(sprite.x, sprite.y)) {
-        this.terrainManager.createExplosion(sprite.x, sprite.y, proj.aoeRange, this.SHOOTER_CONFIG.TERRAIN_DAMAGE_STRENGTH);
-        sprite.destroy();
-        this.projectiles.splice(p, 1);
-        continue;
-      }
-
-      // Collision with drills
-      for (const drill of drills) {
-        if (!drill.isAlive) continue;
-        if (Phaser.Math.Distance.Between(sprite.x, sprite.y, drill.x, drill.y) < 20) {
-          this.drillManager.damageDrill(drill, proj.damage);
-          this.terrainManager.createExplosion(sprite.x, sprite.y, proj.aoeRange, this.SHOOTER_CONFIG.TERRAIN_DAMAGE_STRENGTH);
-          sprite.destroy();
-          this.projectiles.splice(p, 1);
-          break;
-        }
-      }
-      if (!this.projectiles[p]) continue; // projectile may be removed
-
-      // Collision with turrets
-      for (const turret of turrets) {
-        if (!turret.active) continue;
-        if (Phaser.Math.Distance.Between(sprite.x, sprite.y, turret.x, turret.y) < 20) {
-          this.turretManager.damageTurret(turret, proj.damage);
-          this.terrainManager.createExplosion(sprite.x, sprite.y, proj.aoeRange, this.SHOOTER_CONFIG.TERRAIN_DAMAGE_STRENGTH);
-          sprite.destroy();
-          this.projectiles.splice(p, 1);
-          break;
-        }
-      }
-      if (!this.projectiles[p]) continue;
-
-      // Collision with carrier
-      if (this.carrier && this.carrier.active && Phaser.Math.Distance.Between(sprite.x, sprite.y, this.carrier.x, this.carrier.y) < 30) {
-        this.carrier.damage(proj.damage);
-        this.terrainManager.createExplosion(sprite.x, sprite.y, proj.aoeRange, this.SHOOTER_CONFIG.TERRAIN_DAMAGE_STRENGTH);
-        sprite.destroy();
-        this.projectiles.splice(p, 1);
-      }
+      
+      // Check for collision with targets (drills, turrets, carrier)
+      this.checkProjectileCollisions(projectile, i);
     }
   }
   
-  // Calculate distance between an enemy and a target
-  getDistance(enemy, target) {
-    const dx = enemy.x - target.x;
-    const dy = enemy.y - target.y;
-    return Math.sqrt(dx * dx + dy * dy);
+  /**
+   * Checks if an enemy is off-screen and should be removed
+   * 
+   * @param {BaseEnemy} enemy - The enemy to check
+   * @returns {boolean} - True if the enemy is off-screen
+   */
+  isEnemyOffScreen(enemy) {
+    const bounds = this.scene.cameras.main.getBounds();
+    const buffer = 100; // Extra buffer to allow enemies to move off-screen a bit
+    
+    return (
+      enemy.x < bounds.x - buffer ||
+      enemy.x > bounds.right + buffer ||
+      enemy.y > bounds.bottom + buffer
+    );
   }
   
-  // Find closest target from an array of possible targets
-  findClosestTarget(x, y, targets) {
-    let closest = null;
-    let closestDistance = Number.MAX_VALUE;
+  /**
+   * Checks if a projectile is off-screen and should be removed
+   * 
+   * @param {Phaser.GameObjects.GameObject} sprite - The projectile sprite
+   * @returns {boolean} - True if the projectile is off-screen
+   */
+  isProjectileOffScreen(sprite) {
+    const bounds = this.scene.cameras.main.getBounds();
     
-    targets.forEach(target => {
-      const targetX = target.x;
-      const targetY = target.y;
-      const dx = x - targetX;
-      const dy = y - targetY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+    return (
+      sprite.x < bounds.x ||
+      sprite.x > bounds.right ||
+      sprite.y < bounds.y ||
+      sprite.y > bounds.bottom
+    );
+  }
+  
+  /**
+   * Checks for collisions between a projectile and potential targets
+   * 
+   * @param {object} projectile - The projectile object
+   * @param {number} projectileIndex - Index of the projectile in the array
+   */
+  checkProjectileCollisions(projectile, projectileIndex) {
+    const sprite = projectile.sprite;
+    
+    let drills = [];
+    if (this.drillManager) {
+      if (typeof this.drillManager.getTargetableDrills === 'function') {
+        drills = this.drillManager.getTargetableDrills();
+      } else if (typeof this.drillManager.getDrills === 'function') {
+        drills = this.drillManager.getDrills();
+      }
+    }
+    
+    // Check collision with drills
+    for (const drill of drills) {
+      const distance = this.getDistance(sprite, drill);
+      
+      // Simple collision detection
+      if (distance < 20) {
+        // Apply direct hit damage
+        if (this.drillManager && typeof this.drillManager.damageDrill === 'function') {
+          this.drillManager.damageDrill(drill, projectile.damage);
+        }
+        
+        // Create explosion effect and apply AOE damage
+        this.createExplosionEffect(sprite.x, sprite.y, projectile.aoeRange);
+        this.damageTerrainAtProjectile(sprite.x, sprite.y, projectile);
+        
+        // Remove projectile
+        sprite.destroy();
+        this.projectiles.splice(projectileIndex, 1);
+        return;
+      }
+    }
+    
+    // Get all turrets
+    const turrets = this.turretManager ? this.turretManager.getTurrets() : [];
+    
+    // Check collision with turrets
+    for (const turret of turrets) {
+      const distance = this.getDistance(sprite, turret);
+      
+      // Simple collision detection
+      if (distance < 20) {
+        // Apply direct hit damage
+        turret.takeDamage(projectile.damage);
+        
+        // Create explosion effect and apply AOE damage
+        this.createExplosionEffect(sprite.x, sprite.y, projectile.aoeRange);
+        this.damageTerrainAtProjectile(sprite.x, sprite.y, projectile);
+        
+        // Remove projectile
+        sprite.destroy();
+        this.projectiles.splice(projectileIndex, 1);
+        return;
+      }
+    }
+    
+    // Check collision with carrier
+    if (this.carrier && this.carrier.isLanded) {
+      const distance = this.getDistance(sprite, this.carrier);
+      
+      // Simple collision detection
+      if (distance < 30) {
+        // Apply direct hit damage
+        this.carrier.takeDamage(projectile.damage);
+        
+        // Create explosion effect and apply AOE damage
+        this.createExplosionEffect(sprite.x, sprite.y, projectile.aoeRange);
+        this.damageTerrainAtProjectile(sprite.x, sprite.y, projectile);
+        
+        // Remove projectile
+        sprite.destroy();
+        this.projectiles.splice(projectileIndex, 1);
+        return;
+      }
+    }
+    
+    // Check collision with terrain
+    if (this.terrainManager.checkCollision(sprite.x, sprite.y)) {
+      // Create explosion effect and damage terrain
+      this.createExplosionEffect(sprite.x, sprite.y, projectile.aoeRange);
+      this.damageTerrainAtProjectile(sprite.x, sprite.y, projectile);
+      
+      // Remove projectile
+      sprite.destroy();
+      this.projectiles.splice(projectileIndex, 1);
+    }
+  }
+  
+  /**
+   * Creates a visual explosion effect at the specified coordinates
+   * 
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {number} radius - Radius of the explosion
+   */
+  createExplosionEffect(x, y, radius) {
+    // Create expanding circle for explosion
+    const explosion = this.scene.add.circle(x, y, 10, 0xff6600, 0.8);
+    
+    // Create pulsating effect with scale and alpha
+    this.scene.tweens.add({
+      targets: explosion,
+      scale: radius / 10, // Scale to match AOE radius
+      alpha: 0,
+      duration: 300,
+      onComplete: () => {
+        explosion.destroy();
+      }
+    });
+    
+    // Create particle effect for more visual impact
+    for (let i = 0; i < 12; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * radius * 0.8;
+      
+      const particle = this.scene.add.circle(
+        x, 
+        y, 
+        3, 
+        0xff9900
+      );
+      
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0.5,
+        duration: 250 + Math.random() * 200,
+        onComplete: () => {
+          particle.destroy();
+        }
+      });
+    }
+  }
+  
+  /**
+   * Damages terrain at the projectile's impact location
+   * 
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {object} projectile - The projectile object
+   */
+  damageTerrainAtProjectile(x, y, projectile) {
+    if (!this.terrainManager) return;
+    
+    // Apply terrain damage
+    const terrainDamage = projectile.terrainDamage || 5;
+    this.terrainManager.damageCircle(x, y, projectile.aoeRange || 10, terrainDamage);
+  }
+  
+  /**
+   * Calculates distance between two objects with x,y properties
+   * 
+   * @param {object} objA - First object with x,y properties
+   * @param {object} objB - Second object with x,y properties
+   * @returns {number} - Distance between the objects
+   */
+  getDistance(objA, objB) {
+    return Phaser.Math.Distance.Between(
+      objA.x, objA.y,
+      objB.x, objB.y
+    );
+  }
+  
+  /**
+   * Finds the closest target from an array of potential targets
+   * 
+   * @param {number} x - Origin X coordinate
+   * @param {number} y - Origin Y coordinate
+   * @param {Array} targets - Array of potential targets with x,y properties
+   * @returns {object|null} - The closest target or null if none found
+   */
+  findClosestTarget(x, y, targets) {
+    if (!targets || targets.length === 0) return null;
+    
+    let closestTarget = null;
+    let closestDistance = Infinity;
+    
+    for (const target of targets) {
+      const distance = Phaser.Math.Distance.Between(
+        x, y,
+        target.x, target.y
+      );
       
       if (distance < closestDistance) {
-        closest = target;
         closestDistance = distance;
+        closestTarget = target;
       }
-    });
+    }
     
-    return closest;
+    return closestTarget;
   }
   
-  // Show visual attack effect
-  showAttackEffect(enemy, targetX, targetY) {
-    const line = this.scene.add.line(
-      0, 0, 
-      enemy.x, enemy.y,
-      targetX, targetY,
-      enemy.tier === 'LARGE' ? 0xff6600 : (enemy.tier === 'MEDIUM' ? 0xff3300 : 0xff0000)
-    );
-    line.setLineWidth(3, 3);
-    line.setOrigin(0, 0);
-    
-    // Make the line fade out
-    this.scene.tweens.add({
-      targets: line,
-      alpha: 0,
-      duration: 200,
-      onComplete: () => {
-        line.destroy();
-      }
-    });
-  }
-  
-  // Method to damage enemies from drill explosions
+  /**
+   * Damages all enemies within a radius
+   * 
+   * @param {number} x - Center X coordinate
+   * @param {number} y - Center Y coordinate
+   * @param {number} radius - Radius of effect
+   * @param {number} damage - Amount of damage to apply
+   */
   damageEnemiesInRange(x, y, radius, damage) {
-    this.enemies.forEach((enemy, index) => {
-      const dx = enemy.x - x;
-      const dy = enemy.y - y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+    for (const enemy of this.enemies) {
+      const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
       
       if (distance <= radius) {
-        // Calculate damage based on distance
-        const actualDamage = Math.floor(damage * (1 - distance / radius));
-        this.damageEnemy(index, actualDamage);
+        // Apply damage with falloff based on distance from center
+        const damageMultiplier = 1 - (distance / radius * 0.5); // 50% damage at the edge of radius
+        const actualDamage = Math.round(damage * damageMultiplier);
+        
+        if (actualDamage > 0) {
+          enemy.takeDamage(actualDamage);
+          this.showDamageIndicator(enemy.x, enemy.y, actualDamage);
+        }
       }
-    });
-  }
-  
-  // Method to damage an enemy
-  damageEnemy(index, amount) {
-    const enemy = this.enemies[index];
-    if (!enemy) return;
-    
-    enemy.health -= amount;
-    
-    // If enemy health is 0 or less, destroy it
-    if (enemy.health <= 0) {
-      enemy.sprite.destroy();
-      this.enemies.splice(index, 1);
     }
   }
   
+  /**
+   * Shows a damage number indicator at the specified coordinates
+   * 
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {number} amount - Amount of damage to display
+   */
+  showDamageIndicator(x, y, amount) {
+    // Create text object for damage
+    const damageText = this.scene.add.text(
+      x, 
+      y, 
+      amount.toString(), 
+      { 
+        fontFamily: 'Arial', 
+        fontSize: '16px', 
+        color: '#ff0000',
+        stroke: '#000000',
+        strokeThickness: 2
+      }
+    );
+    damageText.setOrigin(0.5);
+    
+    // Animate the damage text
+    this.scene.tweens.add({
+      targets: damageText,
+      y: y - 30,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => {
+        damageText.destroy();
+      }
+    });
+  }
+  
+  /**
+   * Damages a specific enemy by index
+   * 
+   * @param {number} index - Index of the enemy in the enemies array
+   * @param {number} amount - Amount of damage to apply
+   */
+  damageEnemy(index, amount) {
+    if (index < 0 || index >= this.enemies.length) return;
+    
+    const enemy = this.enemies[index];
+    
+    // Apply damage and show indicator
+    enemy.takeDamage(amount);
+    this.showDamageIndicator(enemy.x, enemy.y, amount);
+  }
+  
+  /**
+   * Returns the array of active enemies
+   * 
+   * @returns {Array} - Array of enemy objects
+   */
   getEnemies() {
     return this.enemies;
   }
   
+  /**
+   * Returns the current wave number
+   * 
+   * @returns {number} - Current wave number
+   */
   getCurrentWave() {
     return this.currentWave;
   }
   
+  /**
+   * Returns the current wave status
+   * 
+   * @returns {object} - Wave status object
+   */
   getWaveStatus() {
     return {
-      currentWave: this.currentWave,
-      isActive: this.isWaveActive,
-      enemiesLeftToSpawn: this.enemiesLeftToSpawn
+      wave: this.currentWave,
+      active: this.isWaveActive,
+      enemiesLeft: this.enemiesLeftToSpawn,
+      breakTimer: this.waveBreakTimer
     };
   }
   
+  /**
+   * Returns counts of each enemy type
+   * 
+   * @returns {object} - Object with counts for each enemy type
+   */
   getEnemyTypeCounts() {
     const counts = {
-      purple: 0,
-      red: 0
+      SMALL: 0,
+      MEDIUM: 0,
+      LARGE: 0,
+      SHOOTER: 0
     };
-
+    
+    // Count enemies by tier
     for (const enemy of this.enemies) {
-      if (enemy.tier === 'SHOOTER') {
-        counts.purple++;
-      } else {
-        counts.red++;
+      if (counts.hasOwnProperty(enemy.tier)) {
+        counts[enemy.tier]++;
       }
     }
     
     return counts;
+  }
+  
+  /**
+   * === Unified Targetable System helpers ===
+   */
+  registerTarget(obj) {
+    if (!obj || this.targetables.includes(obj)) return;
+    this.targetables.push(obj);
+  }
+
+  unregisterTarget(obj) {
+    const idx = this.targetables.indexOf(obj);
+    if (idx !== -1) {
+      this.targetables.splice(idx, 1);
+    }
+  }
+
+  getTargetables() {
+    // Enhanced filtering to catch more edge cases of invalid targets
+    return this.targetables.filter(t => {
+      // Basic existence check
+      if (!t) return false;
+      
+      // Check various "destroyed" flags
+      if (t.active === false) return false;
+      if (t.isAlive === false) return false;
+      if (typeof t.isDestroyed === 'function' && t.isDestroyed()) return false;
+      
+      // Verify the target has valid coordinates
+      if (typeof t.x !== 'number' || typeof t.y !== 'number') return false;
+      if (isNaN(t.x) || isNaN(t.y)) return false;
+      
+      // Check if sprite exists and is active (for objects with sprites)
+      if (t.sprite && !t.sprite.active) return false;
+      
+      return true;
+    });
+  }
+  
+  /**
+   * Periodically removes invalid entries from the targetables array
+   * This helps prevent "phantom target" issues where enemies attack
+   * locations where objects used to be
+   */
+  cleanupTargetables() {
+    const validTargets = this.getTargetables();
+    
+    // If the filtered list is shorter than the original, we have invalid entries
+    if (validTargets.length < this.targetables.length) {
+      // Replace the array with only valid targets
+      const removedCount = this.targetables.length - validTargets.length;
+      this.targetables = validTargets;
+      console.log(`Cleaned up targetables: removed ${removedCount} invalid targets`);
+    }
   }
 } 

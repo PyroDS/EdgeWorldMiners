@@ -53,7 +53,15 @@ function create() {
   turretManager = new TurretManager(this, resourceManager, terrainManager);
   enemyManager = new EnemyManager(this, terrainManager, drillManager, turretManager, carrier);
   
-  // Connect managers
+  // Wire back references now that enemyManager exists
+  drillManager.setEnemyManager(enemyManager);
+  turretManager.setEnemyManager(enemyManager);
+
+  // Register carrier as a targetable object
+  carrier.priorityTag = 'CARRIER';
+  enemyManager.registerTarget(carrier);
+  
+  // Provide enemy references to other systems
   turretManager.enemies = enemyManager.getEnemies();
   carrier.setEnemyManager(enemyManager);
   

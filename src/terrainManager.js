@@ -196,4 +196,29 @@ export class TerrainManager {
 
     return null; // no solid tile in this column
   }
+
+  // --- Compatibility helpers added during enemy overhaul ---
+  /**
+   * Damages terrain in a circle. For now this delegates to createExplosion so
+   * that existing gameplay relying on terrain damage continues to work.
+   *
+   * @param {number} x - center x
+   * @param {number} y - center y
+   * @param {number} radius - radius in pixels
+   * @param {number} strength - value 0-10 controlling destruction probability
+   */
+  damageCircle(x, y, radius = 20, strength = 5) {
+    this.createExplosion(x, y, radius, strength);
+  }
+
+  /**
+   * Checks if a given world coordinate collides with solid terrain.
+   *
+   * @param {number} x
+   * @param {number} y
+   * @returns {boolean}
+   */
+  checkCollision(x, y) {
+    return this.isSolid(x, y);
+  }
 }
