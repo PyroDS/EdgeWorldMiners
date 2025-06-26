@@ -72,6 +72,10 @@ export class EnemyManager {
     this.spawnTimer = 0;
     this.waveBreakTimer = 0;
     this.isWaveActive = false;
+
+    // NEW: Flag to control when the wave system starts. Waves are disabled until the
+    //      main scene signals that the world has finished generating.
+    this.waveSystemEnabled = false;
   }
   
   // Method to set drillManager after initialization (to avoid circular dependencies)
@@ -197,6 +201,11 @@ export class EnemyManager {
    * Updates the wave system (spawning, breaks between waves)
    */
   updateWaveSystem() {
+    // --- EARLY OUT if waves are not enabled yet ---
+    if (!this.waveSystemEnabled) {
+      return;
+    }
+
     // If wave is active and we have enemies to spawn
     if (this.isWaveActive && this.enemiesLeftToSpawn > 0) {
       this.spawnTimer++;
@@ -688,5 +697,20 @@ export class EnemyManager {
       this.targetables = validTargets;
       console.log(`Cleaned up targetables: removed ${removedCount} invalid targets`);
     }
+  }
+
+  /**
+   * Enables the wave system. Call this once the world has fully loaded so that
+   * waves (and their counters) do not start prematurely.
+   */
+  enableWaveSystem() {
+    this.waveSystemEnabled = true;
+  }
+
+  /**
+   * Disables the wave system. Provided for future flexibility (e.g., pausing gameplay).
+   */
+  disableWaveSystem() {
+    this.waveSystemEnabled = false;
   }
 } 

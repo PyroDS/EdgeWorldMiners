@@ -116,6 +116,9 @@ export class TurretManager {
     let nearestDistance = range;
     
     for (const enemy of this.enemies) {
+      // Skip invalid enemies
+      if (!enemy || !enemy.active) continue;
+      
       const distance = Phaser.Math.Distance.Between(
         x, y,
         enemy.x, enemy.y
@@ -153,6 +156,9 @@ export class TurretManager {
       
       // Check for collision with enemies
       for (const enemy of this.enemies) {
+        // Skip invalid enemies
+        if (!enemy || !enemy.active) continue;
+        
         const distance = Phaser.Math.Distance.Between(
           sprite.x, sprite.y,
           enemy.x, enemy.y
@@ -223,6 +229,9 @@ export class TurretManager {
   // Damage enemies in AOE range
   damageEnemiesInRange(x, y, radius, damage) {
     for (const enemy of this.enemies) {
+      // Skip if enemy is invalid or already destroyed
+      if (!enemy) continue;
+      
       const distance = Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y);
       
       if (distance <= radius) {
@@ -239,7 +248,10 @@ export class TurretManager {
         
         // Remove enemy if dead
         if (enemy.health <= 0) {
-          enemy.sprite.destroy();
+          // Check if sprite exists before destroying it
+          if (enemy.sprite && enemy.sprite.active) {
+            enemy.sprite.destroy();
+          }
           const index = this.enemies.indexOf(enemy);
           if (index > -1) this.enemies.splice(index, 1);
         }

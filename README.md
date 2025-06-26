@@ -24,9 +24,11 @@ A fast-paced sci-fi mining & defense game written in **Phaser 3**.  Establish dr
 - 🏗 **Build Manager & Menu**
   - Toggle with **B** or UI button, hotkeys **1** (Drill) & **2** (Turret).
   - Holographic previews, live cost updates, placement validity colouring + turret AOE preview.
-- 🎮 **Polished Sci-Fi HUD** – live resources, wave info, enemy count, structure status, notification toasts.
+- 🎮 **Responsive HTML/CSS HUD Overlay** – dynamic resource & wave indicators, structure status, notification toasts; scales beautifully across window sizes.
 - 🖱 **Smooth Camera Controls** – Arrow keys, mouse wheel (vertical) & middle-drag (horizontal).
 - 📜 **Well-Commented ES Modules** – easy to read & extend.
+- 📡 **Focus Mode Inspector** – press **F** to toggle a magnifier cursor that live-displays the material under your mouse (or SKY / UNDERGROUND) and contextual stats on buildings.
+- 🌍 **Advanced Procedural World Generation** – multilayer Simplex-noise height-map, biome-based materials, caves, ore veins, sky gradient & animated clouds.
 
 ---
 
@@ -38,6 +40,7 @@ A fast-paced sci-fi mining & defense game written in **Phaser 3**.  Establish dr
 | Confirm Placement | Left Click |
 | Cancel Build Mode | **ESC** or Right Click |
 | Toggle Turret Stats | **T** |
+| **Toggle Focus Mode** | **F** |
 | Scroll Camera (Vertical) | Mouse Wheel ↑/↓ or Arrow ↑/↓ |
 | Scroll Camera (Horizontal) | Arrow ←/→ or Middle-Button Drag |
 
