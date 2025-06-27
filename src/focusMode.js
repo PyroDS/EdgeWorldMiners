@@ -195,9 +195,19 @@ export class FocusMode {
       }
 
       if (tileObj) {
-        if (this.debug) console.log('Focus: Reporting tile:', tileObj.name, 'hardness:', tileObj.hardness);
+        if (this.debug) console.log('Focus: Reporting tile:', tileObj.name, 'hardness:', tileObj.hardness, 'resourceValue:', tileObj.resourceValue);
         result.label = tileObj.name.replace(/_/g, ' ').toUpperCase();
-        result.details = tileObj.name === 'air' ? '' : `Hardness: ${tileObj.hardness}`;
+        
+        // Build details string including hardness and resource value if available
+        let details = '';
+        if (tileObj.name !== 'air') {
+          details = `Hardness: ${tileObj.hardness}`;
+          // Add resource value if present
+          if (tileObj.resourceValue !== undefined && tileObj.resourceValue > 0) {
+            details += `\nResource Value: ${tileObj.resourceValue}`;
+          }
+        }
+        result.details = details;
         return result;
       }
     } catch (err) {
@@ -208,10 +218,9 @@ export class FocusMode {
   }
 
   updateInfo(pointer, data) {
-    this.infoEl.innerHTML = `
-      <div class="fi-label">${data.label}</div>
-      <div class="fi-details">${data.details}</div>
-    `;
+    this.infoEl.innerHTML = 
+    `<div class="fi-label">${data.label}</div>
+    <div class="fi-details">${data.details}</div>`;
     // Position to the right-bottom of cursor
     const infoOffset = 28;
     this.infoEl.style.left = `${pointer.x + infoOffset}px`;
