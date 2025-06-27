@@ -230,7 +230,7 @@ export class ShooterEnemy extends BaseEnemy {
   }
   
   /**
-   * Finds a new target (drill or turret) to attack
+   * Finds a new target (drill, turret, or carrier hardpoint) to attack
    */
   findNewTarget() {
     // Reset target
@@ -240,9 +240,33 @@ export class ShooterEnemy extends BaseEnemy {
     const allTargets = this.manager.getTargetables();
     if (!allTargets || allTargets.length === 0) return;
 
-    // Drills first priority
+    // Create priority lists - shooters prefer different targets based on game state
     const drillTargets = allTargets.filter(t => t.priorityTag === 'DRILL');
-    const candidateList = drillTargets.length ? drillTargets : allTargets;
+    const hardpointTargets = allTargets.filter(t => t.priorityTag === 'CARRIER_HARDPOINT' && !t.destroyed);
+    
+    // Check if carrier has all hardpoints destroyed - if so, it becomes a valid target
+    const carrier = allTargets.find(t => t.priorityTag === 'CARRIER');
+    const isCarrierVulnerable = carrier && 
+                               carrier.hardpoints && 
+                               carrier.hardpoints.length > 0 &&
+                               carrier.hardpoints.every(hp => !hp || hp.destroyed);
+    
+    // Determine target priority - 60% chance to prefer hardpoints if they exist
+    let candidateList;
+    
+    if (hardpointTargets.length > 0 && Math.random() < 0.6) {
+      // Target hardpoints first (higher priority)
+      candidateList = hardpointTargets;
+    } else if (isCarrierVulnerable && Math.random() < 0.8) {
+      // Vulnerable carrier becomes high priority
+      candidateList = [carrier];
+    } else if (drillTargets.length > 0) {
+      // Target drills if no hardpoints to attack
+      candidateList = drillTargets; 
+    } else {
+      // Default to all targets
+      candidateList = allTargets;
+    }
 
     const closestTarget = this.manager.findClosestTarget(this.x, this.y, candidateList);
 

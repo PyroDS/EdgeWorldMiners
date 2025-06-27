@@ -439,15 +439,19 @@ export class UI {
       });
     }
     
-    // Pause carrier projectiles
-    if (this.scene.carrier && this.scene.carrier.projectiles) {
-      this.scene.carrier.projectiles.forEach(projectile => {
-        if (projectile && projectile.body) {
-          // Store velocity to restore later
-          projectile.prevVelocityX = projectile.body.velocity.x;
-          projectile.prevVelocityY = projectile.body.velocity.y;
-          // Stop the projectile movement
-          projectile.body.setVelocity(0, 0);
+    // Pause carrier hardpoint projectiles
+    if (this.scene.carrier && this.scene.carrier.hardpoints) {
+      this.scene.carrier.hardpoints.forEach(hardpoint => {
+        if (hardpoint && hardpoint.projectiles) {
+          hardpoint.projectiles.forEach(projectile => {
+            if (projectile && projectile.body) {
+              // Store velocity to restore later
+              projectile.prevVelocityX = projectile.body.velocity.x;
+              projectile.prevVelocityY = projectile.body.velocity.y;
+              // Stop the projectile movement
+              projectile.body.setVelocity(0, 0);
+            }
+          });
         }
       });
     }
@@ -502,15 +506,19 @@ export class UI {
       });
     }
     
-    // Resume carrier projectiles
-    if (this.scene.carrier && this.scene.carrier.projectiles) {
-      this.scene.carrier.projectiles.forEach(projectile => {
-        if (projectile && projectile.body && projectile.prevVelocityX !== undefined) {
-          // Restore velocity
-          projectile.body.setVelocity(
-            projectile.prevVelocityX || 0,
-            projectile.prevVelocityY || 0
-          );
+    // Resume carrier hardpoint projectiles
+    if (this.scene.carrier && this.scene.carrier.hardpoints) {
+      this.scene.carrier.hardpoints.forEach(hardpoint => {
+        if (hardpoint && hardpoint.projectiles) {
+          hardpoint.projectiles.forEach(projectile => {
+            if (projectile && projectile.body && projectile.prevVelocityX !== undefined) {
+              // Restore velocity
+              projectile.body.setVelocity(
+                projectile.prevVelocityX || 0,
+                projectile.prevVelocityY || 0
+              );
+            }
+          });
         }
       });
     }

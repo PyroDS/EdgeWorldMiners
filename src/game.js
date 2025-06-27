@@ -213,6 +213,33 @@ class GameScene extends Phaser.Scene {
     turretManager.enemies = enemyManager.getEnemies();
     carrier.setEnemyManager(enemyManager);
     
+    // Initialize carrier hardpoints with turret manager
+    // Import directly here to avoid circular dependencies
+    import('./CarrierHardpoint.js').then(module => {
+      const { CarrierHardpoint } = module;
+      
+      // Create hardpoints at the configured positions
+      if (carrier.hardpointOffsets) {
+        for (const offset of carrier.hardpointOffsets) {
+          const hardpoint = new CarrierHardpoint(
+            this, 
+            turretManager, 
+            carrier, 
+            offset.x, 
+            offset.y,
+            'PointDefense'
+          );
+          
+          // Add hardpoint to carrier
+          carrier.hardpoints.push(hardpoint);
+          
+          // Register hardpoint as targetable by enemies
+          hardpoint.priorityTag = 'CARRIER_HARDPOINT';
+          enemyManager.registerTarget(hardpoint);
+        }
+      }
+    });
+    
     // Make managers accessible to the UI via scene
     this.terrainManager = terrainManager;
     this.drillManager = drillManager;

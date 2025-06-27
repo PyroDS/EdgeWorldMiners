@@ -120,6 +120,53 @@ export class FocusMode {
     const tm = this.scene.terrainManager || this.scene.scene?.terrainManager;
 
     // ---- 1) Buildings ----
+    // Check carrier hardpoints
+    if (this.scene.carrier?.hardpoints) {
+      for (const hardpoint of this.scene.carrier.hardpoints) {
+        if (!hardpoint || hardpoint.destroyed) continue;
+        const dist = Phaser.Math.Distance.Between(wx, wy, hardpoint.x, hardpoint.y);
+        if (dist < 30) {
+          if (this.debug) console.log('Focus: Found carrier hardpoint', hardpoint);
+          result.label = 'CARRIER HARDPOINT';
+          
+          // Display detailed info about the hardpoint
+          const healthPercent = Math.floor((hardpoint.health / hardpoint.maxHealth) * 100);
+          let healthStatus = 'CRITICAL';
+          if (healthPercent > 65) healthStatus = 'GOOD';
+          else if (healthPercent > 30) healthStatus = 'DAMAGED';
+          
+          result.details = 
+            `Type: ${hardpoint.turretType}\n` +
+            `Health: ${hardpoint.health}/${hardpoint.maxHealth} (${healthStatus})\n` +
+            `Range: ${hardpoint.STATS.RANGE}\n` +
+            `Damage: ${hardpoint.STATS.DAMAGE}`;
+          return result;
+        }
+      }
+    }
+    
+    // Check carrier itself
+    if (this.scene.carrier) {
+      const carrier = this.scene.carrier;
+      const dist = Phaser.Math.Distance.Between(wx, wy, carrier.x, carrier.y);
+      if (dist < 100) { // Larger radius for carrier
+        if (this.debug) console.log('Focus: Found carrier', carrier);
+        result.label = 'CARRIER';
+        
+        // Display carrier health info
+        const healthPercent = Math.floor((carrier.health / carrier.maxHealth) * 100);
+        let healthStatus = 'CRITICAL';
+        if (healthPercent > 65) healthStatus = 'GOOD';
+        else if (healthPercent > 30) healthStatus = 'DAMAGED';
+        
+        result.details = 
+          `Health: ${carrier.health}/${carrier.maxHealth} (${healthStatus})\n` +
+          `Status: ${(carrier.hardpoints.some(h => h && !h.destroyed)) ? 'Armed' : 'Vulnerable'}\n` +
+          `Hardpoints: ${carrier.hardpoints.filter(h => h && !h.destroyed).length}/${carrier.hardpoints.length}`;
+        return result;
+      }
+    }
+    
     // Check drills
     const drills = this.scene.drillManager?.drills || [];
     for (const drill of drills) {

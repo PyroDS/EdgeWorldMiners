@@ -79,7 +79,7 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
   // Obtain a safe spawn coordinate.
   const { x: carrierX, y: carrierY } = findHoverPosition(scene, terrainManager, worldWidth, hoverHeight);
 
-  // Build a simple sci-fi looking ship with Phaser graphics.
+  // Build a sci-fi carrier with hardpoint mounts using Phaser graphics.
   const g = scene.add.graphics();
 
   // Hull
@@ -101,6 +101,13 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
   g.fillStyle(0x66CCFF);
   // Central cockpit window on the front of the hull
   g.fillRect(HULL_WIDTH/2 - 40, PAD_TOP + 10, 80, 36);
+  
+  // Hardpoint mounts on top of the hull
+  g.fillStyle(0x5A5A7A);
+  // Left hardpoint mount
+  g.fillRect(HULL_WIDTH/2 - 100 - 12, PAD_TOP + 10, 24, 16);
+  // Right hardpoint mount
+  g.fillRect(HULL_WIDTH/2 + 100 - 12, PAD_TOP + 10, 24, 16);
 
   // Engine pods
   g.fillStyle(0x5A5A7A);
@@ -133,71 +140,79 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
 
   // Damage function with flash feedback
   carrier.takeDamage = function(amount = 1) {
-    this.health -= amount;
-    if (this.health <= 0) {
-      // Unregister so enemies no longer target a destroyed carrier
-      if (this.enemyManager) {
-        this.enemyManager.unregisterTarget(this);
+    // Check if all hardpoints are destroyed - carrier is only vulnerable when this happens
+    const allHardpointsDestroyed = this.hardpoints && 
+      this.hardpoints.length > 0 && 
+      this.hardpoints.every(hp => !hp || hp.destroyed);
+    
+    // Only take damage if all hardpoints are destroyed or if no hardpoints exist yet
+    if (allHardpointsDestroyed || !this.hardpoints || this.hardpoints.length === 0) {
+      this.health -= amount;
+      
+      // flash red for longer when taking direct damage to carrier
+      const originalTint = this.tintTopLeft;
+      this.setTint(0xff3333);
+      scene.time.delayedCall(200, () => {
+        if (this.active) { // Only proceed if carrier wasn't destroyed
+          this.setTint(originalTint);
+        }
+      });
+      
+      if (this.health <= 0) {
+        // Unregister so enemies no longer target a destroyed carrier
+        if (this.enemyManager) {
+          this.enemyManager.unregisterTarget(this);
+        }
+        
+        // Clean up hardpoints
+        if (this.hardpoints) {
+          for (const hardpoint of this.hardpoints) {
+            if (hardpoint && typeof hardpoint.destroy === 'function') {
+              hardpoint.destroy();
+            }
+          }
+          this.hardpoints = [];
+        }
+        
+        // TODO: implement game-over logic – for now destroy sprite
+        this.destroy();
+        return;
       }
-      // TODO: implement game-over logic – for now destroy sprite
-      this.destroy();
-      return;
+    } else {
+      // Redirect damage to a random non-destroyed hardpoint
+      const activeHardpoints = this.hardpoints.filter(hp => hp && !hp.destroyed);
+      if (activeHardpoints.length > 0) {
+        const targetHardpoint = activeHardpoints[Math.floor(Math.random() * activeHardpoints.length)];
+        targetHardpoint.takeDamage(amount);
+        
+        // Flash carrier briefly to indicate attack
+        const originalTint = this.tintTopLeft;
+        this.setTint(0xffaaaa);
+        scene.time.delayedCall(50, () => {
+          this.setTint(originalTint);
+        });
+      }
     }
-    // flash red
-    const originalTint = this.tintTopLeft;
-    this.setTint(0xff5555);
-    scene.time.delayedCall(100, () => {
-      this.setTint(originalTint);
-    });
   };
   
   // Alias for backward compatibility
   carrier.damage = carrier.takeDamage;
 
-  // Mini-turret stats
-  const MINI_STATS = {
-    RANGE: 300,
-    FIRE_RATE: 15, // frames between shots
-    PROJECTILE_SPEED: 450,
-    DAMAGE: 5,
-    ACCURACY: 0.85,
-    COLOR: 0xffdd33
-  };
-
-  // Offsets for two turrets on top of the carrier
-  const turretOffsets = [
+  // Hardpoint configuration
+  const hardpointOffsets = [
     { x: -100, y: -40 },
     { x:  100, y: -40 }
   ];
 
-  // Create mini turret barrels for nice visuals (optional)
-  carrier.miniTurrets = turretOffsets.map(offset => {
-    const barrel = scene.add.rectangle(carrier.x + offset.x, carrier.y + offset.y, 6, 14, 0xaaaaaa);
-    barrel.setOrigin(0.5, 1);
-    barrel.setDepth(carrier.depth + 1);
-    return { offset, barrel, fireTimer: 0 };
-  });
-
-  carrier.projectiles = [];
+  // We'll populate this with actual hardpoints in game.js after turretManager is available
+  carrier.hardpoints = [];
+  carrier.hardpointOffsets = hardpointOffsets;
+  
+  // Store enemy manager reference for hardpoints to use
   carrier.enemyManager = null; // linked later
   carrier.setEnemyManager = function(em) { this.enemyManager = em; };
 
-  // Helper to spawn a projectile from a mini turret
-  function spawnMiniProjectile(startX, startY, targetX, targetY) {
-    const baseAngle = Phaser.Math.Angle.Between(startX, startY, targetX, targetY);
-    const inaccuracy = 1 - (MINI_STATS.ACCURACY ?? 1);
-    const maxSpread = Math.PI / 8; // 22.5 degrees
-    const spreadRange = inaccuracy * maxSpread;
-    const randomOffset = Phaser.Math.FloatBetween(-spreadRange, spreadRange);
-    const angle = baseAngle + randomOffset;
-    const proj = scene.add.circle(startX, startY, 3, MINI_STATS.COLOR);
-    scene.physics.add.existing(proj);
-    proj.body.setAllowGravity(false);
-    proj.body.setVelocity(Math.cos(angle) * MINI_STATS.PROJECTILE_SPEED, Math.sin(angle) * MINI_STATS.PROJECTILE_SPEED);
-    proj.setData('damage', MINI_STATS.DAMAGE);
-    proj.setData('angle', angle);
-    carrier.projectiles.push(proj);
-  }
+  // No helper functions needed - hardpoints handle their own projectiles
 
   // Update loop for carrier (called by main scene)
   carrier.update = function() {
@@ -217,87 +232,10 @@ export function createCarrier(scene, terrainManager, worldWidth, hoverHeight = 1
       this.y = Phaser.Math.Linear(this.y, desiredY, 0.06);
     }
 
-    // update turret barrels & firing
-    for (const turret of this.miniTurrets) {
-      // keep barrel positioned
-      turret.barrel.x = this.x + turret.offset.x;
-      turret.barrel.y = this.y + turret.offset.y;
-
-      turret.fireTimer++;
-      if (!this.enemyManager) continue;
-      // find nearest enemy within range
-      let nearest = null;
-      let nearestDist = MINI_STATS.RANGE;
-      for (const enemy of this.enemyManager.getEnemies()) {
-        const dist = Phaser.Math.Distance.Between(turret.barrel.x, turret.barrel.y, enemy.x, enemy.y);
-        if (dist < nearestDist) { nearestDist = dist; nearest = enemy; }
-      }
-      if (nearest && turret.fireTimer >= MINI_STATS.FIRE_RATE) {
-        turret.fireTimer = 0;
-        // rotate barrel
-        const ang = Phaser.Math.Angle.Between(turret.barrel.x, turret.barrel.y, nearest.x, nearest.y);
-        turret.barrel.rotation = ang - Math.PI/2;
-        spawnMiniProjectile(turret.barrel.x, turret.barrel.y, nearest.x, nearest.y);
-      }
-    }
-
-    // Update projectiles
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const proj = this.projectiles[i];
-      // Remove out-of-bounds
-      const bounds = scene.cameras.main.getBounds();
-      if (proj.x < bounds.x || proj.x > bounds.right || proj.y < bounds.y || proj.y > bounds.bottom) {
-        proj.destroy();
-        this.projectiles.splice(i,1);
-        continue;
-      }
-      // Collision with enemies
-      if (this.enemyManager) {
-        for (const enemy of this.enemyManager.getEnemies()) {
-          const dist = Phaser.Math.Distance.Between(proj.x, proj.y, enemy.x, enemy.y);
-          if (dist < enemy.size) {
-            const wasDestroyed = enemy.takeDamage(proj.getData('damage'));
-            
-            if (!wasDestroyed) {
-              const damageText = scene.add.text(
-                enemy.x, 
-                enemy.y, 
-                proj.getData('damage').toString(), 
-                { 
-                  fontFamily: 'Arial', 
-                  fontSize: '16px', 
-                  color: '#ffff00',
-                  stroke: '#000000',
-                  strokeThickness: 2
-                }
-              );
-              damageText.setOrigin(0.5);
-              
-              scene.tweens.add({
-                targets: damageText,
-                y: enemy.y - 30,
-                alpha: 0,
-                duration: 800,
-                onComplete: () => {
-                  damageText.destroy();
-                }
-              });
-            }
-            
-            const impact = scene.add.circle(proj.x, proj.y, 6, MINI_STATS.COLOR, 0.8);
-            impact.setDepth(100);
-            scene.tweens.add({
-              targets: impact,
-              alpha: 0,
-              scale: 2,
-              duration: 250,
-              onComplete: () => impact.destroy()
-            });
-            proj.destroy();
-            this.projectiles.splice(i,1);
-            break;
-          }
-        }
+    // Update hardpoints
+    for (const hardpoint of this.hardpoints) {
+      if (hardpoint && typeof hardpoint.update === 'function') {
+        hardpoint.update();
       }
     }
   };

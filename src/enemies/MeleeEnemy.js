@@ -31,21 +31,21 @@ export class MeleeEnemy extends BaseEnemy {
   static TIER_STATS = {
     SMALL: {
       HEALTH: 30,
-      SPEED: 70,
+      SPEED: 120,
       SIZE: 18, // Increased from 15
       DAMAGE: 3,
       COLOR: 0xff0000,
     },
     MEDIUM: {
-      HEALTH: 60,
-      SPEED: 50,
+      HEALTH: 80,
+      SPEED: 80,
       SIZE: 30, // Increased from 25
       DAMAGE: 5,
       COLOR: 0xff3300,
     },
     LARGE: {
-      HEALTH: 120,
-      SPEED: 35,
+      HEALTH: 300,
+      SPEED: 50,
       SIZE: 48, // Increased from 40
       DAMAGE: 10,
       COLOR: 0xff6600,
@@ -62,7 +62,7 @@ export class MeleeEnemy extends BaseEnemy {
     ATTACK_RANGE: 140,
     ATTACK_COOLDOWN: 60,
     PATROL_DURATION: 180, // frames before changing patrol direction
-    PATROL_SPEED_FACTOR: 0.8 // How much of normal speed is used for patrol movement
+    PATROL_SPEED_FACTOR: 0.6 // How much of normal speed is used for patrol movement
   };
 
   /**
@@ -90,9 +90,12 @@ export class MeleeEnemy extends BaseEnemy {
     // Create the enemy sprite with the new attack craft design
     this.createSprite();
     
-    // Initialize patrol behavior
-    this.patrolDirection = Math.random() > 0.5 ? 1 : -1; // Random initial direction
+    // Initialize patrol behavior with a direction vector
     this.patrolTimer = Math.floor(Math.random() * MeleeEnemy.WAVE_SETTINGS.PATROL_DURATION);
+    
+    // Initial patrol angle (downward with some randomness)
+    const randomAngle = Math.random() * Math.PI / 3 - Math.PI / 6; // -30° to +30° from vertical
+    this.patrolAngle = Math.PI / 2 + randomAngle; // Start with a generally downward direction
   }
 
   /**
@@ -179,13 +182,13 @@ export class MeleeEnemy extends BaseEnemy {
     if (this.target) {
       this.moveTowardsTarget();
     } else {
-      // No target, patrol the area
+      // No target, patrol the area in a straight line
       this.patrol();
     }
   }
   
   /**
-   * Finds a new target (drill or turret) to attack
+   * Finds a new target (drill, turret, or carrier hardpoint) to attack
    */
   findNewTarget() {
     // Reset target info
@@ -194,7 +197,35 @@ export class MeleeEnemy extends BaseEnemy {
 
     const allTargets = this.manager.getTargetables();
     if (!allTargets || allTargets.length === 0) return;
-
+    
+    // Check if carrier has all hardpoints destroyed - if so, it becomes a valid target
+    const carrier = allTargets.find(t => t.priorityTag === 'CARRIER');
+    const isCarrierVulnerable = carrier && 
+                               carrier.hardpoints && 
+                               carrier.hardpoints.length > 0 &&
+                               carrier.hardpoints.every(hp => !hp || hp.destroyed);
+    
+    // Prioritize carrier hardpoints if they exist
+    const hardpointTargets = allTargets.filter(t => t.priorityTag === 'CARRIER_HARDPOINT' && !t.destroyed);
+    
+    // If hardpoints exist, randomly choose between focusing on them or other targets
+    // This creates more diverse attack patterns (80% chance to attack hardpoints if they exist)
+    if (hardpointTargets.length > 0 && Math.random() < 0.8) {
+      const closestHardpoint = this.manager.findClosestTarget(this.x, this.y, hardpointTargets);
+      
+      if (closestHardpoint) {
+        this.target = closestHardpoint;
+        this.targetType = 'carrier_hardpoint';
+        return;
+      }
+    } else if (isCarrierVulnerable && Math.random() < 0.8) {
+      // If all hardpoints are destroyed, target the carrier with high priority
+      this.target = carrier;
+      this.targetType = 'carrier';
+      return;
+    }
+    
+    // Default target selection logic for other targets
     const closestTarget = this.manager.findClosestTarget(this.x, this.y, allTargets);
 
     if (closestTarget) {
@@ -210,10 +241,8 @@ export class MeleeEnemy extends BaseEnemy {
     // Calculate direction to target
     let targetX, targetY;
     
-    if (this.targetType === 'drill' || this.targetType === 'turret') {
-      targetX = this.target.x;
-      targetY = this.target.y;
-    } else if (this.targetType === 'carrier') {
+    if (this.targetType === 'drill' || this.targetType === 'turret' || 
+        this.targetType === 'carrier_hardpoint' || this.targetType === 'carrier') {
       targetX = this.target.x;
       targetY = this.target.y;
     } else {
@@ -281,10 +310,8 @@ export class MeleeEnemy extends BaseEnemy {
     
     let targetX, targetY;
     
-    if (this.targetType === 'drill' || this.targetType === 'turret') {
-      targetX = this.target.x;
-      targetY = this.target.y;
-    } else if (this.targetType === 'carrier') {
+    if (this.targetType === 'drill' || this.targetType === 'turret' || 
+        this.targetType === 'carrier_hardpoint' || this.targetType === 'carrier') {
       targetX = this.target.x;
       targetY = this.target.y;
     } else {
@@ -322,32 +349,48 @@ export class MeleeEnemy extends BaseEnemy {
   
   /**
    * Patrol behavior when no target is available
+   * Uses straight-line movement in a generally downward direction with
+   * occasional course changes, similar to ShooterEnemy's attack run.
    */
   patrol() {
     // Update patrol timer
     this.patrolTimer--;
     if (this.patrolTimer <= 0) {
-      // Change direction
-      this.patrolDirection = -this.patrolDirection;
+      // Change direction with a new angle that's generally downward
+      const randomAngle = Math.random() * Math.PI / 2 - Math.PI / 4; // -45° to +45° from vertical
+      this.patrolAngle = Math.PI / 2 + randomAngle;
       this.patrolTimer = MeleeEnemy.WAVE_SETTINGS.PATROL_DURATION;
     }
     
-    // Move horizontally at reduced speed
+    // Calculate velocity from angle
     const patrolSpeed = this.speed * MeleeEnemy.WAVE_SETTINGS.PATROL_SPEED_FACTOR;
-    this.sprite.body.setVelocity(
-      this.patrolDirection * patrolSpeed,
-      patrolSpeed * 0.5
-    );
+    const vx = Math.cos(this.patrolAngle) * patrolSpeed;
+    const vy = Math.sin(this.patrolAngle) * patrolSpeed;
+    
+    // Set velocity
+    this.sprite.body.setVelocity(vx, vy);
     
     // Rotate to face movement direction
-    const angle = Math.atan2(patrolSpeed * 0.5, this.patrolDirection * patrolSpeed);
-    this.sprite.rotation = angle + Math.PI/2;
+    this.sprite.rotation = this.patrolAngle + Math.PI/2;
     
-    // Check world bounds and reverse direction if needed
+    // Check world bounds and adjust angle if needed
     const worldBounds = this.scene.cameras.main.getBounds();
-    if ((this.x < worldBounds.x + 50 && this.patrolDirection < 0) || 
-        (this.x > worldBounds.right - 50 && this.patrolDirection > 0)) {
-      this.patrolDirection = -this.patrolDirection;
+    const padding = 50;
+    
+    if (this.x < worldBounds.x + padding && vx < 0) {
+      // Too far left, turn right
+      this.patrolAngle = Math.PI / 2 + Math.random() * Math.PI / 4; // Down-right
+      this.patrolTimer = MeleeEnemy.WAVE_SETTINGS.PATROL_DURATION;
+    } else if (this.x > worldBounds.right - padding && vx > 0) {
+      // Too far right, turn left
+      this.patrolAngle = Math.PI / 2 - Math.random() * Math.PI / 4; // Down-left
+      this.patrolTimer = MeleeEnemy.WAVE_SETTINGS.PATROL_DURATION;
+    }
+    
+    // If we somehow got above the screen, force downward movement
+    if (this.y < 0) {
+      this.patrolAngle = Math.PI / 2;
+      this.patrolTimer = MeleeEnemy.WAVE_SETTINGS.PATROL_DURATION;
     }
   }
 } 
