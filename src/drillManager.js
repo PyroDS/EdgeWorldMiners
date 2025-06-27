@@ -11,13 +11,14 @@ export class DrillManager {
     this.drills = [];
     this.timer = 0;
     this.cargoManager = new CargoManager(scene, carrier.x, carrier.y, resourceManager);
+    this.cargoManager.setCarrier(carrier);  // Set the carrier object directly
     
     // Define drill stats
     this.DRILL_STATS = {
       NAME: "Drill",
       COST: 10,
       HEALTH: this.DRILL_MAX_HEALTH,
-      MINING_RATE: 1, // Base mining rate
+      MINING_RATE: 0.2, // Reduced from 1 to slow down mining
       MINING_EFFICIENCY: 1.0 // Multiplier for mining productivity
     };
     
@@ -42,6 +43,9 @@ export class DrillManager {
     
     // Track drills that are currently exploding to prevent recursion
     this.explodingDrills = new Set();
+    
+    // Store mining progress indicators
+    this.progressBars = new Map();
   }
 
   // --- Helper to create a more complex sci-fi drill sprite ---
@@ -91,6 +95,13 @@ export class DrillManager {
 
     // Create the fancy sci-fi drill graphics
     const { container, body } = this.createDrillSprite(x, y);
+    
+    // Calculate tile position directly below the drill
+    const tileSize = this.terrainManager.tileSize;
+    const tileX = Math.floor(x / tileSize) * tileSize + tileSize / 2; // Center of tile
+    const tileY = Math.floor((y + tileSize) / tileSize) * tileSize + tileSize / 2; // Center of tile below
+    
+    console.log(`Drill placed at ${x},${y}. Target tile center: ${tileX},${tileY}`);
 
     // Store drill info – we keep a reference to both container (for destroy) and body (for tinting)
     this.drills.push({
@@ -102,7 +113,14 @@ export class DrillManager {
       reachedBottom: false,
       health: this.DRILL_MAX_HEALTH,
       isAlive: true,
-      priorityTag: 'DRILL'
+      priorityTag: 'DRILL',
+      miningTarget: {
+        x: tileX,
+        y: tileY, // Target center of tile directly below the drill
+        currentHardness: 0,                  // Will be populated on first update
+        originalHardness: 0,                 // Will be populated on first update
+        resourceValue: 0                     // Will be populated on first update
+      }
     });
 
     // Register with EnemyManager for targeting
@@ -117,6 +135,83 @@ export class DrillManager {
     return true;
   }
 
+  // Create or update progress bar for a drill's mining target
+  updateMiningProgressBar(drill) {
+    const target = drill.miningTarget;
+    if (!target || drill.reachedBottom) {
+      // Remove any existing progress bar if we're mining bedrock
+      if (this.progressBars.has(drill)) {
+        const bar = this.progressBars.get(drill);
+        bar.background.destroy();
+        bar.fill.destroy();
+        this.progressBars.delete(drill);
+      }
+      return;
+    }
+    
+    // Calculate progress percentage
+    let progress = 0;
+    if (target.originalHardness > 0) {
+      progress = 1 - (target.currentHardness / target.originalHardness);
+    }
+    
+    // Ensure progress is between 0 and 1
+    progress = Math.max(0, Math.min(1, progress));
+    
+    // Create or update progress bar
+    if (!this.progressBars.has(drill)) {
+      // Create new progress bar
+      const barWidth = 30;
+      const barHeight = 4;
+      
+      // Position above the target
+      const barX = target.x;
+      const barY = target.y - 15;
+      
+      // Background of the bar
+      const background = this.scene.add.rectangle(
+        barX, barY, 
+        barWidth, barHeight, 
+        0x000000, 0.7
+      );
+      
+      // Fill part of the bar
+      const fill = this.scene.add.rectangle(
+        barX - barWidth/2 + (progress * barWidth/2), barY, 
+        progress * barWidth, barHeight, 
+        0x00ff00, 1
+      );
+      fill.setOrigin(0, 0.5);
+      
+      this.progressBars.set(drill, { background, fill, lastProgress: progress });
+    } else {
+      // Update existing progress bar
+      const bar = this.progressBars.get(drill);
+      
+      // Only update if progress changed significantly
+      if (Math.abs(bar.lastProgress - progress) > 0.01) {
+        // Update fill width and position
+        const barWidth = 30;
+        bar.fill.width = progress * barWidth;
+        bar.fill.x = target.x - barWidth/2;
+        bar.lastProgress = progress;
+        
+        // Update color based on progress
+        let color;
+        if (progress < 0.33) color = 0xff0000;
+        else if (progress < 0.66) color = 0xffff00;
+        else color = 0x00ff00;
+        
+        bar.fill.fillColor = color;
+      }
+      
+      // Update position if target changed
+      bar.background.x = target.x;
+      bar.background.y = target.y - 15;
+      bar.fill.y = target.y - 15;
+    }
+  }
+
   update() {
     this.timer++;
     if (this.timer % 60 === 0) {
@@ -124,31 +219,115 @@ export class DrillManager {
       this.drills = this.drills.filter(drill => drill.isAlive);
       
       this.drills.forEach((drill) => {
-        const dy = Math.floor(drill.mined / 2);
-        const currentDepth = 400 + dy * 20;
-        
-        // Check if this drill has reached the bottom
-        if (currentDepth >= this.WORLD_BOTTOM - 20) {
-          if (!drill.reachedBottom) {
+        // Initialize mining target if not initialized
+        const target = drill.miningTarget;
+        if (target.currentHardness === 0) {
+          // Get material info at the current target position
+          const tileAt = this.terrainManager.getTileAt(target.x, target.y);
+          if (tileAt && tileAt.mineable) {
+            target.currentHardness = tileAt.hardness;
+            target.originalHardness = tileAt.hardness;
+            target.resourceValue = tileAt.resourceValue || 0;
+            console.log(`Drill at ${drill.x},${drill.y} mining: ${tileAt.name} with hardness ${tileAt.hardness}`);
+          } else if (tileAt && tileAt.name === "bedrock") {
+            // Bedrock - slow production but infinite
             drill.reachedBottom = true;
             drill.body.fillColor = this.DRILL_COLORS.BOTTOM_REACHED;
+            target.currentHardness = 0; // Don't track hardness for bedrock
+            target.originalHardness = 0;
+            target.resourceValue = this.terrainManager.MATERIALS.BEDROCK.resourceValue || 0.25;
+            console.log(`Drill at ${drill.x},${drill.y} reached bedrock`);
+          } else {
+            console.log(`Drill at ${drill.x},${drill.y} has invalid target:`, tileAt);
           }
         }
         
-        // Only mine if not at bottom or at 1/4 rate if at bottom
-        if (!drill.reachedBottom || this.timer % 240 === 0) {
-          // Only attempt to destroy terrain if not at bottom
-          if (!drill.reachedBottom) {
-            this.terrainManager.destroyAt(drill.x, currentDepth);
+        // Process mining action
+        const miningRate = this.DRILL_STATS.MINING_RATE * this.DRILL_STATS.MINING_EFFICIENCY;
+        
+        if (drill.reachedBottom) {
+          // Bedrock mining - slower rate
+          if (this.timer % 240 === 0) {
+            drill.mined += 1;
+            
+            // Spawn cargo at reduced rate if on bedrock (1/4 the normal rate)
+            if (drill.mined % 8 === 0) {
+              this.cargoManager.spawn(drill.x, drill.y, target.resourceValue);
+            }
           }
-          drill.mined += 1;
+        } else {
+          // Normal mining - reduce hardness of target
+          target.currentHardness -= miningRate;
           
-          // Spawn cargo at full rate if not at bottom, or at 1/4 rate if at bottom
-          if ((!drill.reachedBottom && drill.mined % 2 === 0) || 
-              (drill.reachedBottom && drill.mined % 8 === 0)) {
-            this.cargoManager.spawn(drill.x, drill.y, 1);
+          // Check if target is depleted
+          if (target.currentHardness <= 0) {
+            // Generate resources based on tile value
+            const resourceAmount = target.resourceValue;
+            
+            if (resourceAmount > 0) {
+              this.cargoManager.spawn(drill.x, drill.y, resourceAmount);
+              console.log(`Drill at ${drill.x},${drill.y} generated ${resourceAmount} resources`);
+            }
+            
+            // Destroy the tile and move to the next one - pass a high mining power to ensure destruction
+            const success = this.terrainManager.destroyAt(target.x, target.y, 1000);
+            console.log(`Destroying tile at ${target.x},${target.y}: ${success ? 'success' : 'failed'}`);
+            
+            // Update mining target to the tile below
+            target.y += this.terrainManager.tileSize;
+            
+            // Get new material info
+            const newTile = this.terrainManager.getTileAt(target.x, target.y);
+            
+            if (newTile && newTile.mineable) {
+              target.currentHardness = newTile.hardness;
+              target.originalHardness = newTile.hardness;
+              target.resourceValue = newTile.resourceValue || 0;
+              console.log(`Drill at ${drill.x},${drill.y} now mining: ${newTile.name} at ${target.x},${target.y}`);
+            } else if (newTile && newTile.name === "bedrock") {
+              // Bedrock - slow production but infinite
+              drill.reachedBottom = true;
+              drill.body.fillColor = this.DRILL_COLORS.BOTTOM_REACHED;
+              target.currentHardness = 0;
+              target.originalHardness = 0;
+              target.resourceValue = this.terrainManager.MATERIALS.BEDROCK.resourceValue || 0.25;
+              console.log(`Drill at ${drill.x},${drill.y} reached bedrock`);
+            } else {
+              console.log(`Drill at ${drill.x},${drill.y} has invalid next target:`, newTile);
+            }
+            
+            drill.mined += 1;
+          }
+          
+          // Visual progress indicator (mining particles)
+          if (this.timer % 15 === 0 && target.originalHardness > 0) {
+            const progress = 1 - (target.currentHardness / target.originalHardness);
+            const x = target.x;
+            const y = target.y;
+            
+            if (progress > 0.5) {
+              // Create small mining particles
+              const particle = this.scene.add.circle(
+                x + (Math.random() * 10 - 5), 
+                y - 5, 
+                2, 
+                0xFFFFFF, 
+                0.7
+              );
+              
+              this.scene.tweens.add({
+                targets: particle,
+                alpha: 0,
+                y: y - 15,
+                duration: 500,
+                onComplete: () => particle.destroy()
+              });
+            }
           }
         }
+        
+        // Update mining progress bar for this drill
+        this.updateMiningProgressBar(drill);
       });
     }
     this.cargoManager.update();
@@ -179,6 +358,14 @@ export class DrillManager {
     
     // Add this drill to exploding set to prevent recursion
     this.explodingDrills.add(drill);
+    
+    // Clean up progress bar if it exists
+    if (this.progressBars.has(drill)) {
+      const bar = this.progressBars.get(drill);
+      bar.background.destroy();
+      bar.fill.destroy();
+      this.progressBars.delete(drill);
+    }
     
     // Create explosion effect
     this.createExplosion(drill.x, drill.y, drill);

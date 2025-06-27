@@ -399,7 +399,8 @@ export class TerrainManager {
         hardness: 0, 
         color: 0x000000, 
         name: "air",
-        damageResistance: 0
+        damageResistance: 0,
+        resourceValue: 0
       },
       SAND: { 
         solid: true, 
@@ -408,7 +409,8 @@ export class TerrainManager {
         hardness: 1, 
         color: 0xD2B48C, 
         name: "sand",
-        damageResistance: 0.1
+        damageResistance: 0.1,
+        resourceValue: 1
       },
       DIRT: { 
         solid: true, 
@@ -417,7 +419,8 @@ export class TerrainManager {
         hardness: 2, 
         color: 0x8B4513, 
         name: "dirt",
-        damageResistance: 0.3
+        damageResistance: 0.3,
+        resourceValue: 2
       },
       ROCK: { 
         solid: true, 
@@ -426,7 +429,8 @@ export class TerrainManager {
         hardness: 5, 
         color: 0x555555, 
         name: "rock",
-        damageResistance: 0.6
+        damageResistance: 0.6,
+        resourceValue: 3
       },
       HARD_ROCK: { 
         solid: true, 
@@ -435,7 +439,8 @@ export class TerrainManager {
         hardness: 8, 
         color: 0x333333, 
         name: "hard_rock",
-        damageResistance: 0.8
+        damageResistance: 0.8,
+        resourceValue: 4
       },
       METAL_ORE: { 
         solid: true, 
@@ -444,7 +449,8 @@ export class TerrainManager {
         hardness: 10, 
         color: 0x7a7a8c, 
         name: "metal_ore",
-        damageResistance: 0.7
+        damageResistance: 0.7,
+        resourceValue: 6
       },
       BEDROCK: { 
         solid: true, 
@@ -453,7 +459,8 @@ export class TerrainManager {
         hardness: 100, 
         color: 0x111111, 
         name: "bedrock",
-        damageResistance: 0.95
+        damageResistance: 0.95,
+        resourceValue: 0.25
       },
       // New material types for biomes
       RED_SAND: {
@@ -463,7 +470,8 @@ export class TerrainManager {
         hardness: 1,
         color: 0xC35B34, // Reddish sand color
         name: "red_sand",
-        damageResistance: 0.1
+        damageResistance: 0.1,
+        resourceValue: 1
       },
       CLAY: {
         solid: true,
@@ -472,7 +480,8 @@ export class TerrainManager {
         hardness: 3,
         color: 0x9C5A3C, // Clay color
         name: "clay",
-        damageResistance: 0.4
+        damageResistance: 0.4,
+        resourceValue: 2
       },
       GRAVEL: {
         solid: true,
@@ -481,7 +490,8 @@ export class TerrainManager {
         hardness: 2,
         color: 0x777777, // Gravel color
         name: "gravel",
-        damageResistance: 0.2
+        damageResistance: 0.2,
+        resourceValue: 1.5
       },
       CRYSTAL: {
         solid: true,
@@ -490,7 +500,8 @@ export class TerrainManager {
         hardness: 15,
         color: 0x88CCFF, // Crystal blue color
         name: "crystal",
-        damageResistance: 0.8
+        damageResistance: 0.8,
+        resourceValue: 8
       }
     };
   }
@@ -1109,7 +1120,7 @@ export class TerrainManager {
     }
   }
 
-  // --- Compatibility methods ---
+  // --- Helper methods for gameplay and mineral extraction ---
 
   isSolid(x, y) {
     const col = Math.floor(x / this.tileSize);
@@ -1126,6 +1137,14 @@ export class TerrainManager {
     const below = this.tiles[row + 1]?.[col];
 
     return tile.name === "air" && below?.solid;
+  }
+  
+  getResourceValueAt(x, y) {
+    const col = Math.floor(x / this.tileSize);
+    const row = Math.floor(y / this.tileSize);
+    
+    if (!this.tiles[row] || !this.tiles[row][col]) return 0;
+    return this.tiles[row]?.[col]?.resourceValue || 0;
   }
 
   getSurfaceY(x) {
