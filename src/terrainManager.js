@@ -5,10 +5,10 @@ export class TerrainManager {
     this.scene = scene;
     
     // --- World dimension constraints ---
-    const minSkyPixels = 800;   // must have at least 800 px of sky above sea-level
-    const minDepthPixels = 1000; // must have at least 1000 px of world below sea-level
+    const minSkyPixels = 1000;   // must have at least 1000 px of sky above sea-level
+    const minDepthPixels = 1200; // must have at least 1200 px of world below sea-level
 
-    const minWorldHeight = minSkyPixels + minDepthPixels; // 1800 px
+    const minWorldHeight = minSkyPixels + minDepthPixels; // 2200 px
 
     const minWidth = 1024;
     const requestedHeight = config.height || 1800;

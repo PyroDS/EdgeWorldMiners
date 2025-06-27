@@ -62,8 +62,8 @@ export class EnemyManager {
     this.WAVE_SETTINGS = {
       INITIAL_ENEMIES: 5,
       ENEMIES_INCREMENT: 3,
-      BREAK_DURATION: 600, // frames between waves
-      SPAWN_INTERVAL: 60, // frames between enemy spawns in a wave
+      BREAK_DURATION: 1000, // frames between waves
+      SPAWN_INTERVAL: 600, // frames between enemy spawns in a wave
     };
     
     // Wave state
