@@ -43,6 +43,10 @@ export class UI {
     this.createKeyBindings();
     // Settings button & modal
     this.createSettingsUI();
+    // Left navigation menu items
+    this.createLeftNavigation();
+    // Hot Keys section in the left nav
+    this.createHotKeysSection();
 
     // Focus mode (magnifier) controller
     this.focusMode = new FocusMode(scene, this.uiOverlay);
@@ -584,6 +588,168 @@ export class UI {
     // Update all UI components that need refreshing every frame
     this.updateWaveStatus();
     this.updateStructureStatus();
+  }
+
+  /**
+   * Creates the left navigation menu with placeholder navigation items
+   * Adds links for Home Base, Research, Upgrades, and Galaxy Map
+   */
+  createLeftNavigation() {
+    // Get the main navigation area
+    const mainNavArea = document.getElementById('main-nav-area');
+    if (!mainNavArea) return; // Exit if element doesn't exist
+    
+    // Create navigation container
+    const navContainer = document.createElement('nav');
+    navContainer.className = 'left-nav-menu';
+    
+    // Create navigation items
+    const navItems = [
+      { id: 'home-base', label: 'Home Base' },
+      { id: 'research', label: 'Research' },
+      { id: 'upgrades', label: 'Upgrades' },
+      { id: 'galaxy-map', label: 'Galaxy Map' }
+    ];
+    
+    // Create list for navigation items
+    const navList = document.createElement('ul');
+    navList.className = 'nav-list';
+    
+    // Add each navigation item to the list
+    navItems.forEach(item => {
+      const listItem = document.createElement('li');
+      listItem.className = 'nav-item';
+      
+      const link = document.createElement('a');
+      link.href = '#';
+      link.id = item.id;
+      link.innerText = item.label;
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Placeholder for future functionality
+        console.log(`Navigation to: ${item.label}`);
+      });
+      
+      listItem.appendChild(link);
+      navList.appendChild(listItem);
+    });
+    
+    // Add the navigation list to the container
+    navContainer.appendChild(navList);
+    
+    // Add the navigation to the main nav area
+    mainNavArea.appendChild(navContainer);
+  }
+
+  /**
+   * Creates and populates the Hot Keys section in the left navigation panel
+   * Displays available keyboard shortcuts and their functions
+   */
+  createHotKeysSection() {
+    // Get the hot keys section element
+    const hotkeysSection = document.getElementById('hotkeys-section');
+    if (!hotkeysSection) return; // Exit if element doesn't exist
+    
+    // Create the title
+    const title = document.createElement('h3');
+    title.innerText = 'HOT KEYS';
+    hotkeysSection.appendChild(title);
+    
+    // Create the list
+    const hotkeyList = document.createElement('ul');
+    hotkeyList.className = 'hotkey-list';
+    
+    // Define all hot keys and their functions
+    const hotkeys = [
+      { key: 'B', description: 'Toggle Build Menu' },
+      { key: 'F', description: 'Toggle Focus Mode' },
+      { key: ' <--> ', description: 'Move Left or right' },
+      // Add more hot keys as they are implemented in the game
+    ];
+    
+    // Create an entry for each hot key
+    hotkeys.forEach(hotkey => {
+      const item = document.createElement('li');
+      item.className = 'hotkey-item';
+      
+      const keySpan = document.createElement('span');
+      keySpan.className = 'hotkey-button';
+      keySpan.innerText = hotkey.key;
+      
+      const descSpan = document.createElement('span');
+      descSpan.className = 'hotkey-desc';
+      descSpan.innerText = hotkey.description;
+      
+      // Add elements to the item
+      item.appendChild(keySpan);
+      item.appendChild(descSpan);
+      
+      // Add item to the list
+      hotkeyList.appendChild(item);
+    });
+    
+    // Append the list to the section
+    hotkeysSection.appendChild(hotkeyList);
+    
+    // Create user profile section after hotkeys
+    this.createUserProfileSection(hotkeysSection);
+  }
+  
+  /**
+   * Creates a placeholder user profile section with profile image, 
+   * user information, and logout button
+   * 
+   * @param {HTMLElement} parentElement - Element to append the profile section to
+   */
+  createUserProfileSection(parentElement) {
+    // Create a line break
+    const lineBreak = document.createElement('hr');
+    lineBreak.className = 'section-divider';
+    parentElement.appendChild(lineBreak);
+    
+    // Create profile container
+    const profileContainer = document.createElement('div');
+    profileContainer.id = 'user-profile';
+    profileContainer.className = 'user-profile';
+    
+    // Create profile image
+    const profileImage = document.createElement('div');
+    profileImage.className = 'profile-image';
+    
+    // Create user info
+    const userInfo = document.createElement('div');
+    userInfo.className = 'user-info';
+    
+    // Add username
+    const username = document.createElement('div');
+    username.className = 'username';
+    username.innerText = 'Commander Alpha';
+    
+    // Add level
+    const userLevel = document.createElement('div');
+    userLevel.className = 'user-level';
+    userLevel.innerText = 'Level 1';
+    
+    // Add user info to container
+    userInfo.appendChild(username);
+    userInfo.appendChild(userLevel);
+    
+    // Create logout button
+    const logoutButton = document.createElement('button');
+    logoutButton.className = 'logout-button';
+    logoutButton.innerText = 'Logout';
+    logoutButton.addEventListener('click', () => {
+      // Placeholder for future functionality
+      console.log('Logout clicked');
+    });
+    
+    // Add elements to profile container
+    profileContainer.appendChild(profileImage);
+    profileContainer.appendChild(userInfo);
+    profileContainer.appendChild(logoutButton);
+    
+    // Append the profile section to parent
+    parentElement.appendChild(profileContainer);
   }
 }
 

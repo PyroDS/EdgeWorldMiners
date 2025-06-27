@@ -25,14 +25,29 @@
   padding: 1rem;
   box-sizing: border-box;
   flex-shrink: 0; /* Prevents the nav from shrinking */
+  position: relative;
+  height: 100%; /* Ensure it takes full height */
+  display: flex;
+  flex-direction: column;
 }
 
+/* Game title styling */
 .game-title {
   font-family: var(--font-family);
   color: var(--text-secondary);
   text-align: center;
   margin-bottom: 2rem;
   font-weight: 700;
+}
+
+/* Main navigation area */
+#main-nav-area {
+  flex-shrink: 0; /* Don't let it shrink */
+}
+
+/* Spacer to push content to the bottom */
+.nav-spacer {
+  flex-grow: 1; /* This will push the hotkeys section to the bottom */
 }
 
 /* Game Area Layout */
@@ -505,6 +520,162 @@
   height: 100%;
   background: var(--panel-border);
   transition: width 0.25s ease-out;
+}
+
+/* Hot Keys Section Styling */
+#hotkeys-section {
+  margin-top: auto; /* Push to the bottom */
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+  font-size: 0.9rem;
+  padding: 1rem 0;
+  width: 100%;
+}
+
+#hotkeys-section h3 {
+  color: var(--text-secondary);
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.hotkey-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hotkey-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.hotkey-button {
+  display: inline-block;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  line-height: 1.5rem;
+  text-align: center;
+  background-color: rgba(0, 170, 255, 0.15);
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  margin-right: 0.75rem;
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+/* Left Navigation Menu */
+.left-nav-menu {
+  margin-bottom: 2rem;
+}
+
+.nav-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-item {
+  margin-bottom: 0.75rem;
+}
+
+.nav-item a {
+  display: block;
+  color: var(--text-primary);
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+  font-size: 1.1rem;
+}
+
+.nav-item a:hover {
+  color: var(--text-secondary);
+  border-left-color: var(--text-secondary);
+  background-color: rgba(0, 170, 255, 0.1);
+  padding-left: 1rem;
+}
+
+/* Section Divider */
+.section-divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--panel-border), transparent);
+  margin: 1.5rem 0;
+}
+
+/* User Profile Section */
+.user-profile {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  border-radius: 4px;
+  background-color: rgba(0, 170, 255, 0.1);
+  margin-top: 1rem;
+}
+
+.profile-image {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background-color: #00ccff;
+  background-image: linear-gradient(135deg, rgba(0, 170, 255, 0.5), rgba(0, 204, 255, 0.8));
+  position: relative;
+  overflow: hidden;
+  margin-right: 0.75rem;
+  float: left;
+}
+
+.profile-image:before {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 40%;
+  background-color: rgba(10, 26, 42, 0.8);
+  border-radius: 50%;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 3.75rem; /* Make room for the image */
+  margin-bottom: 1rem;
+}
+
+.username {
+  color: var(--text-secondary);
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.user-level {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.logout-button {
+  background-color: rgba(255, 51, 0, 0.2);
+  color: #ff5533;
+  border: 1px solid #ff3300;
+  border-radius: 3px;
+  padding: 0.4rem 0.75rem;
+  font-family: var(--font-family);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-end;
+  width: auto;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 51, 0, 0.4);
 }
 
 /* End of file */ 
