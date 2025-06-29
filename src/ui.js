@@ -1,11 +1,15 @@
 // Sci-Fi UI System for Edge World Miners
 import Phaser from 'phaser';
-import { FocusMode } from './focusMode.js'
+import { FocusMode } from './focusMode.js';
+import { GalaxyMap } from './galaxyMap.js';
 
 export class UI {
   constructor(scene, onSelectBuilding) {
     this.scene = scene;
     this.onSelectBuilding = onSelectBuilding;
+    
+    // Track world-specific DOM nodes for cleanup BEFORE any creators run
+    this.worldElements = [];
     
     // Get the main UI overlay container from the DOM
     this.uiOverlay = document.getElementById('ui-overlay');
@@ -50,6 +54,12 @@ export class UI {
 
     // Focus mode (magnifier) controller
     this.focusMode = new FocusMode(scene, this.uiOverlay);
+    
+    // Initialize Galaxy Map
+    this.galaxyMap = new GalaxyMap(scene);
+    
+    // Initialize planet info from registry
+    this.updatePlanetInfo();
   }
   
   // Get building costs - prevents circular dependencies
@@ -89,6 +99,10 @@ export class UI {
   }
   
   createHUD() {
+    // Remove previous HUD if it exists (prevents duplication across worlds)
+    const existingHud = document.getElementById('top-bar-hud');
+    if (existingHud) existingHud.remove();
+
     // Create the top bar container element
     const topBar = document.createElement('div');
     topBar.id = 'top-bar-hud';
@@ -120,6 +134,24 @@ export class UI {
     this.healthText = structureStatus.querySelector('#health-text');
 
     leftSection.append(resourceDisplay, structureStatus);
+    
+    // --- Planet Info Section: between left and center ---
+    const planetInfoSection = document.createElement('div');
+    planetInfoSection.className = 'hud-section planet-info';
+    planetInfoSection.innerHTML = `
+      <div class="planet-info-container">
+        <h3 id="planet-name">Unknown Planet</h3>
+        <div id="planet-details">
+          <span id="planet-size">Size: Unknown</span>
+          <span id="planet-resources">Resources: Unknown</span>
+          <span id="planet-difficulty">Difficulty: Unknown</span>
+        </div>
+      </div>
+    `;
+    this.planetNameText = planetInfoSection.querySelector('#planet-name');
+    this.planetSizeText = planetInfoSection.querySelector('#planet-size');
+    this.planetResourcesText = planetInfoSection.querySelector('#planet-resources');
+    this.planetDifficultyText = planetInfoSection.querySelector('#planet-difficulty');
 
     // --- Center Section: Wave Info ---
     const centerSection = document.createElement('div');
@@ -158,11 +190,14 @@ export class UI {
     rightSection.append(enemyCounters);
 
     // Append all sections to the top bar
-    topBar.append(leftSection, centerSection, rightSection);
+    topBar.append(leftSection, planetInfoSection, centerSection, rightSection);
     
     // Append the top bar to the main UI overlay
     this.uiOverlay.appendChild(topBar);
 
+    // Track for later removal
+    this.worldElements.push(topBar);
+    
     // Register for resource updates (store handler so we can clean up on shutdown)
     this._onResourcesChanged = (parent, value) => {
       if (!this.resourceText) return;
@@ -244,6 +279,12 @@ export class UI {
   }
 
   createNotificationSystem() {
+    // Remove old notification container if present
+    const old = this.notificationContainer;
+    if (old && old.list) {
+      old.destroy();
+    }
+
     // Container for notifications
     this.notificationContainer = this.scene.add.container(10, 80);
     this.notificationContainer.setScrollFactor(0);
@@ -251,6 +292,9 @@ export class UI {
     
     this.activeNotifications = [];
     this.notificationQueue = [];
+
+    // track graphics container reference though removal done by Phaser automatically.
+    this.worldElements.push(this.notificationContainer);
   }
   
   showNotification(message, type = 'info') {
@@ -296,6 +340,11 @@ export class UI {
     this.scene.input.keyboard.addKey('B').on('down', () => {
       this.toggleBuildMenu();
     });
+    
+    // Open/close the Galaxy Map with 'M' key
+    this.scene.input.keyboard.addKey('M').on('down', () => {
+      this.toggleGalaxyMap();
+    });
 
     // Hotkeys for selecting buildings
     const buildings = this.getDynamicBuildings();
@@ -336,6 +385,18 @@ export class UI {
     }
   }
   
+  /**
+   * Toggles the visibility of the Galaxy Map
+   * 
+   * @param {boolean} forceState - Optional state to force the Galaxy Map to (true=visible, false=hidden)
+   */
+  toggleGalaxyMap(forceState) {
+    if (!this.galaxyMap) return;
+    
+    // Let the Galaxy Map handle its own visibility state
+    this.galaxyMap.toggleGalaxyMap();
+  }
+  
   // =============================
   //        Settings / Pause
   // =============================
@@ -359,6 +420,10 @@ export class UI {
   }
 
   createSettingsModal() {
+    // Remove old modal if still hanging around
+    const existing = document.getElementById('settings-modal');
+    if (existing) existing.remove();
+
     this.settingsModal = document.createElement('div');
     this.settingsModal.id = 'settings-modal';
     
@@ -370,6 +435,7 @@ export class UI {
       <p>Game is Paused</p>
       <div class="modal-actions">
         <button id="close-settings-button">Resume Game</button>
+        <button id="return-landing-button">Return to Landing Page</button>
       </div>
     `;
     
@@ -379,6 +445,22 @@ export class UI {
     // Add event listener to the close button
     const closeButton = this.settingsModal.querySelector('#close-settings-button');
     closeButton.addEventListener('click', () => this.closeSettingsModal());
+    
+    // Add event listener to return to landing page button
+    const returnButton = this.settingsModal.querySelector('#return-landing-button');
+    returnButton.addEventListener('click', () => {
+      // Reset any game state that needs to be cleared
+      this.closeSettingsModal();
+      
+      // Clean up UI elements
+      this.destroy();
+      
+      // Start the landing scene
+      this.scene.scene.start('LandingScene');
+    });
+
+    // Track for cleanup
+    this.worldElements.push(this.settingsModal);
   }
 
   openSettingsModal() {
@@ -534,6 +616,9 @@ export class UI {
     const status = this.scene.enemyManager.getWaveStatus();
     this.waveText.innerText = `WAVE ${status.wave || 0}`;
     
+    const enemyMgr = this.scene.enemyManager;
+
+    // ---- Wave/BREAK label ----
     if (status.active) {
       this.waveStatusText.innerText = 'ACTIVE';
       this.waveStatusText.className = 'active';
@@ -542,14 +627,29 @@ export class UI {
       this.waveStatusText.className = '';
     }
 
-    // Update enemy counters
-    const enemyCounts = this.scene.enemyManager.getEnemyTypeCounts();
-    
-    // Calculate total for red enemies (SMALL, MEDIUM, LARGE)
+    // ---- Progress bar ----
+    let progress = 0;
+    if (status.active) {
+      // During an active wave, show how many enemies have spawned/been defeated.
+      const waveSettings = enemyMgr.WAVE_SETTINGS;
+      const totalEnemiesThisWave = waveSettings.INITIAL_ENEMIES + (status.wave - 1) * waveSettings.ENEMIES_INCREMENT;
+      const enemiesHandled = totalEnemiesThisWave - status.enemiesLeft;
+      progress = Math.max(0, Math.min(1, enemiesHandled / Math.max(1, totalEnemiesThisWave)));
+    } else {
+      // During break, show countdown until next wave.
+      const waveSettings = enemyMgr.WAVE_SETTINGS;
+      const remaining = status.breakTimer;
+      progress = Math.max(0, Math.min(1, (waveSettings.BREAK_DURATION - remaining) / waveSettings.BREAK_DURATION));
+    }
+
+    this.updateWaveProgress(progress, status.active);
+
+    // ---- Enemy counters ----
+    const enemyCounts = enemyMgr.getEnemyTypeCounts();
+    // Red enemies = SMALL + MEDIUM + LARGE tiers
     const redCount = (enemyCounts.SMALL || 0) + (enemyCounts.MEDIUM || 0) + (enemyCounts.LARGE || 0);
     this.enemyRedCountText.innerText = redCount.toString();
-    
-    // Purple enemies are SHOOTER type
+    // Purple enemies = SHOOTER type
     this.enemyPurpleCountText.innerText = (enemyCounts.SHOOTER || 0).toString();
   }
   
@@ -595,6 +695,9 @@ export class UI {
    * Adds links for Home Base, Research, Upgrades, and Galaxy Map
    */
   createLeftNavigation() {
+    // Skip if left nav already built (persistent element)
+    if (document.querySelector('#left-nav .left-nav-menu')) return;
+
     // Get the main navigation area
     const mainNavArea = document.getElementById('main-nav-area');
     if (!mainNavArea) return; // Exit if element doesn't exist
@@ -626,8 +729,14 @@ export class UI {
       link.innerText = item.label;
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        // Placeholder for future functionality
-        console.log(`Navigation to: ${item.label}`);
+        
+        // Handle galaxy map navigation item
+        if (item.id === 'galaxy-map') {
+          this.toggleGalaxyMap();
+        } else {
+          // Placeholder for future functionality
+          console.log(`Navigation to: ${item.label}`);
+        }
       });
       
       listItem.appendChild(link);
@@ -646,10 +755,12 @@ export class UI {
    * Displays available keyboard shortcuts and their functions
    */
   createHotKeysSection() {
-    // Get the hot keys section element
     const hotkeysSection = document.getElementById('hotkeys-section');
-    if (!hotkeysSection) return; // Exit if element doesn't exist
-    
+    if (!hotkeysSection) return;
+
+    // Clear existing children to avoid duplicates then rebuild
+    hotkeysSection.innerHTML = '';
+
     // Create the title
     const title = document.createElement('h3');
     title.innerText = 'HOT KEYS';
@@ -663,6 +774,7 @@ export class UI {
     const hotkeys = [
       { key: 'B', description: 'Toggle Build Menu' },
       { key: 'F', description: 'Toggle Focus Mode' },
+      { key: 'M', description: 'Galaxy Map' },
       { key: ' <--> ', description: 'Move Left or right' },
       // Add more hot keys as they are implemented in the game
     ];
@@ -750,6 +862,66 @@ export class UI {
     
     // Append the profile section to parent
     parentElement.appendChild(profileContainer);
+  }
+
+  /**
+   * Cleans up world-specific UI elements when the scene shuts down
+   */
+  destroy() {
+    // Remove DOM nodes we created for this world
+    this.worldElements.forEach(el => {
+      if (el && el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    });
+    this.worldElements.length = 0;
+
+    // Remove resource listener
+    if (this._onResourcesChanged) {
+      this.scene.registry.events.off('changedata-resources', this._onResourcesChanged);
+    }
+  }
+
+  /**
+   * Updates the planet information in the header based on registry data
+   */
+  updatePlanetInfo() {
+    // Get the planet data from the registry
+    const worldParams = this.scene.registry.get('selectedPlanet');
+    
+    if (!worldParams || !this.planetNameText) return;
+    
+    // Update planet name
+    this.planetNameText.innerText = worldParams.planetName || 'Unknown Planet';
+    
+    // Determine size description based on world width
+    let sizeDescription = 'Medium';
+    if (worldParams.width < 2048) {
+      sizeDescription = 'Small';
+    } else if (worldParams.width > 4096) {
+      sizeDescription = 'Large';
+    }
+    
+    // Determine resource description based on multiplier
+    let resourceDescription = 'Standard';
+    if (worldParams.resourceMultiplier < 0.9) {
+      resourceDescription = 'Scarce';
+    } else if (worldParams.resourceMultiplier > 1.2) {
+      resourceDescription = 'Abundant';
+    }
+    
+    // Determine difficulty based on enemy scaling
+    let difficultyDescription = 'Normal';
+    if (worldParams.enemyScaling < 0.7) {
+      difficultyDescription = 'Easy';
+    } else if (worldParams.enemyScaling > 1.2) {
+      difficultyDescription = 'Hard';
+    }
+    
+    // Update the display elements
+    this.planetSizeText.innerText = `Size: ${sizeDescription}`;
+    this.planetResourcesText.innerText = `Resources: ${resourceDescription}`;
+    this.planetDifficultyText.innerText = `Difficulty: ${difficultyDescription}`;
   }
 }
 

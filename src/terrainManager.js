@@ -19,6 +19,9 @@ export class TerrainManager {
     this.tileSize = config.tileSize || 20;
     this.seaLevelRow = Math.floor(minSkyPixels / this.tileSize); // e.g. 800/20 = 40
     
+    // Planet-specific resource multiplier
+    this.resourceMultiplier = config.resourceMultiplier || 1.0;
+    
     this.cols = Math.floor(this.width / this.tileSize);
     this.rows = Math.floor(this.height / this.tileSize);
     
@@ -1144,7 +1147,10 @@ export class TerrainManager {
     const row = Math.floor(y / this.tileSize);
     
     if (!this.tiles[row] || !this.tiles[row][col]) return 0;
-    return this.tiles[row]?.[col]?.resourceValue || 0;
+    
+    // Apply resource multiplier from planet configuration
+    const baseValue = this.tiles[row]?.[col]?.resourceValue || 0;
+    return Math.floor(baseValue * this.resourceMultiplier);
   }
 
   getSurfaceY(x) {

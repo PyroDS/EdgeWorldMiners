@@ -61,7 +61,7 @@ export class EnemyManager {
     // Wave system settings
     this.WAVE_SETTINGS = {
       INITIAL_ENEMIES: 5,
-      ENEMIES_INCREMENT: 3,
+      ENEMIES_INCREMENT: 5,
       BREAK_DURATION: 1000, // frames between waves
       SPAWN_INTERVAL: 600, // frames between enemy spawns in a wave
     };
@@ -76,6 +76,9 @@ export class EnemyManager {
     // NEW: Flag to control when the wave system starts. Waves are disabled until the
     //      main scene signals that the world has finished generating.
     this.waveSystemEnabled = false;
+    
+    // Get enemy scaling from registry (set in planet selection)
+    this.enemyScaling = scene.registry.get('enemyScaling') || 1.0;
   }
   
   // Method to set drillManager after initialization (to avoid circular dependencies)
@@ -148,8 +151,8 @@ export class EnemyManager {
     const x = 100 + Math.random() * (worldWidth - 200);
     const y = -30; // Start just above the visible area
     
-    // Create the enemy instance
-    const enemy = new MeleeEnemy(this.scene, this, x, y, tierType);
+    // Create the enemy instance with enemy scaling applied
+    const enemy = new MeleeEnemy(this.scene, this, x, y, tierType, this.enemyScaling);
     
     // Add to enemies array
     this.enemies.push(enemy);
@@ -168,8 +171,8 @@ export class EnemyManager {
     const x = side === 'LEFT' ? worldBounds.x - 30 : worldBounds.right + 30;
     const y = 50 + Math.random() * 100; // near the top of the world
 
-    // Create the enemy instance
-    const enemy = new ShooterEnemy(this.scene, this, x, y, hDir);
+    // Create the enemy instance with enemy scaling applied
+    const enemy = new ShooterEnemy(this.scene, this, x, y, hDir, this.enemyScaling);
     
     // Add to enemies array
     this.enemies.push(enemy);
@@ -203,7 +206,16 @@ export class EnemyManager {
   updateWaveSystem() {
     // --- EARLY OUT if waves are not enabled yet ---
     if (!this.waveSystemEnabled) {
+      // Only log every 300 frames (~5 seconds) to avoid console spam
+      if (this.timer % 300 === 0) {
+        console.log(`[WAVE SYSTEM] Wave system still disabled. Current state - wave: ${this.currentWave}, active: ${this.isWaveActive}, timer: ${this.timer}`);
+      }
       return;
+    }
+    
+    // Log wave status occasionally for debugging
+    if (this.timer % 600 === 0) {
+      console.log(`[WAVE SYSTEM] Status - wave: ${this.currentWave}, active: ${this.isWaveActive}, enemiesLeftToSpawn: ${this.enemiesLeftToSpawn}, enemies: ${this.enemies.length}, breakTimer: ${this.waveBreakTimer}`);
     }
 
     // If wave is active and we have enemies to spawn
@@ -704,13 +716,21 @@ export class EnemyManager {
    * waves (and their counters) do not start prematurely.
    */
   enableWaveSystem() {
+    console.log(`[WAVE SYSTEM] Enabling wave system for planet: ${this.scene.registry.get('selectedPlanet')?.planetName || 'unknown'}`);
+    console.log(`[WAVE SYSTEM] Current state before enabling - wave: ${this.currentWave}, active: ${this.isWaveActive}, waveSystemEnabled: ${this.waveSystemEnabled}`);
+    
     this.waveSystemEnabled = true;
+    
+    // Log confirmation of enabled state
+    console.log(`[WAVE SYSTEM] Wave system enabled successfully`);
   }
 
   /**
    * Disables the wave system. Provided for future flexibility (e.g., pausing gameplay).
    */
   disableWaveSystem() {
+    console.log(`[WAVE SYSTEM] Disabling wave system`);
     this.waveSystemEnabled = false;
+    console.log(`[WAVE SYSTEM] Wave system disabled`);
   }
 } 

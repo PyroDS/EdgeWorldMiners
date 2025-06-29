@@ -101,7 +101,7 @@
   box-sizing: border-box;
   color: var(--text-primary);
   display: grid;
-  grid-template-columns: 1fr auto 1fr; /* Left, Center, Right columns */
+  grid-template-columns: 1fr auto auto 1fr; /* Left, Planet, Center, Right columns */
   align-items: center;
   padding: 0 1rem;
   font-family: var(--font-family);
@@ -676,6 +676,41 @@
 
 .logout-button:hover {
   background-color: rgba(255, 51, 0, 0.4);
+}
+
+/* Planet Info Section */
+.hud-section.planet-info {
+  justify-self: center;
+  margin-right: 2rem;
+  padding: 0.25rem 0.75rem;
+  border-left: 1px solid rgba(0, 170, 255, 0.3);
+  border-right: 1px solid rgba(0, 170, 255, 0.3);
+  background-color: rgba(0, 31, 63, 0.3);
+  border-radius: 4px;
+}
+
+.planet-info-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#planet-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+#planet-details {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+#planet-details span {
+  white-space: nowrap;
 }
 
 /* End of file */ 

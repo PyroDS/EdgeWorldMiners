@@ -73,16 +73,22 @@ export class MeleeEnemy extends BaseEnemy {
    * @param {number} x - Initial X position
    * @param {number} y - Initial Y position
    * @param {string} tier - The tier of this enemy: 'SMALL', 'MEDIUM', or 'LARGE'
+   * @param {number} scaling - Optional difficulty scaling factor (default: 1.0)
    */
-  constructor(scene, manager, x, y, tier) {
+  constructor(scene, manager, x, y, tier, scaling = 1.0) {
     // Validate tier and get the appropriate stats
     if (!MeleeEnemy.TIER_STATS[tier]) {
       console.error(`Invalid melee enemy tier: ${tier}`);
       tier = 'SMALL'; // Default to SMALL if invalid tier
     }
     
-    // Call parent constructor with the stats for this tier
-    super(scene, manager, x, y, MeleeEnemy.TIER_STATS[tier]);
+    // Apply scaling to the stats
+    const scaledStats = {...MeleeEnemy.TIER_STATS[tier]};
+    scaledStats.HEALTH = Math.floor(scaledStats.HEALTH * scaling);
+    scaledStats.DAMAGE = Math.floor(scaledStats.DAMAGE * scaling);
+    
+    // Call parent constructor with the scaled stats for this tier
+    super(scene, manager, x, y, scaledStats);
     
     // Store the tier for reference
     this.tier = tier;

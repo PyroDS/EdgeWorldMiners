@@ -63,10 +63,16 @@ export class ShooterEnemy extends BaseEnemy {
    * @param {number} x - Initial X position
    * @param {number} y - Initial Y position
    * @param {number} hDir - Horizontal direction (1 for right, -1 for left)
+   * @param {number} scaling - Optional difficulty scaling factor (default: 1.0)
    */
-  constructor(scene, manager, x, y, hDir = 1) {
-    // Call parent constructor with shooter stats
-    super(scene, manager, x, y, ShooterEnemy.STATS);
+  constructor(scene, manager, x, y, hDir = 1, scaling = 1.0) {
+    // Apply scaling to the stats
+    const scaledStats = {...ShooterEnemy.STATS};
+    scaledStats.HEALTH = Math.floor(scaledStats.HEALTH * scaling);
+    scaledStats.DAMAGE = Math.floor(scaledStats.DAMAGE * scaling);
+    
+    // Call parent constructor with the scaled stats
+    super(scene, manager, x, y, scaledStats);
     
     // Store the tier for reference
     this.tier = 'SHOOTER';
@@ -328,12 +334,18 @@ export class ShooterEnemy extends BaseEnemy {
     );
     projectile.body.setGravity(0, 0);
 
+    // Calculate scaled damage based on the enemy's scaled damage
+    const scaledProjectileDamage = Math.floor(ShooterEnemy.SHOOTER_CONFIG.PROJECTILE_DAMAGE * 
+                                   (this.damage / ShooterEnemy.STATS.DAMAGE));
+    const scaledTerrainDamage = Math.floor(ShooterEnemy.SHOOTER_CONFIG.TERRAIN_DAMAGE_STRENGTH * 
+                               (this.damage / ShooterEnemy.STATS.DAMAGE));
+    
     // Register projectile with manager
     this.manager.projectiles.push({
       sprite: projectile,
-      damage: ShooterEnemy.SHOOTER_CONFIG.PROJECTILE_DAMAGE,
+      damage: scaledProjectileDamage,
       aoeRange: ShooterEnemy.SHOOTER_CONFIG.PROJECTILE_AOE,
-      terrainDamage: ShooterEnemy.SHOOTER_CONFIG.TERRAIN_DAMAGE_STRENGTH
+      terrainDamage: scaledTerrainDamage
     });
     
     // Show muzzle flash effect

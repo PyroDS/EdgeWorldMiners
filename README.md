@@ -1,11 +1,13 @@
 # Edge World Miners (Phaser 3)
 
 ## 🌌 Overview
-A fast-paced sci-fi mining & defense game written in **Phaser 3**.  Establish drilling operations on a hostile asteroid, mine the voxel terrain for resources, and defend your hardware against ever-stronger alien waves.  A sleek futuristic UI keeps you informed while dynamic terrain, explosions, and enemy AI make every session feel fresh.
+A fast-paced sci-fi mining & defense game written in **Phaser 3**.  Navigate the galaxy map to select a planet, establish drilling operations on different worlds, mine the voxel terrain for resources, and defend your hardware against ever-stronger alien waves.  A sleek futuristic UI keeps you informed while dynamic terrain, explosions, and enemy AI make every session feel fresh.
 
 ---
 
 ## 🔧 Key Features
+- 🚀 **Galaxy Map** – select from different planets with unique properties and difficulty levels.
+- 🌌 **Landing Page** – welcome interface that allows you to select your destination.
 - 🛸 **Hovering Carrier** – central resource drop-off & spawn point.
 - 🧱 **Fully Destructible Voxel Terrain** – sand, dirt & rock layers with gravity simulation.
 - ⛏ **Buildable Drills**
@@ -35,6 +37,7 @@ A fast-paced sci-fi mining & defense game written in **Phaser 3**.  Establish dr
 ## 🕹️ Controls
 | Action | Key / Mouse |
 |--------|-------------|
+| Access Galaxy Map | Click on Galaxy Map in the left navigation |
 | Toggle Build Menu | **B** or UI button |
 | Quick-Select Drill / Turret | **1** / **2** |
 | Confirm Placement | Left Click |
@@ -54,6 +57,13 @@ npm install      # install Phaser & dev tools
 npm start        # runs Parcel dev-server and opens the game
 ```
 Parcel defaults to <http://localhost:1234>.  Change the port with the `--port` flag if needed.
+
+## 🌟 Game Flow
+1. **Landing Page** – When you first open the game, you'll see a welcome screen.
+2. **Planet Selection** – Click on "Galaxy Map" in the left navigation to view available planets.
+3. **World Generation** – After selecting a planet, the game generates a world with properties based on the planet type.
+4. **Gameplay** – Build drills and turrets to mine resources and defend against enemy waves.
+5. **Return to Landing** – Access the settings menu to return to the landing page and select a different planet.
 
 ---
 
@@ -81,6 +91,8 @@ Parcel defaults to <http://localhost:1234>.  Change the port with the `--port` f
 | File | Responsibility |
 |------|---------------|
 | `src/game.js` | Phaser config, scene lifecycle, camera & manager wiring |
+| `src/landingScene.js` | Landing page scene with welcome message |
+| `src/galaxyMap.js` | Planet selection interface and world parameters |
 | `src/ui.js` | Complete HUD, build menu, notifications & keybindings |
 | `src/buildManager.js` | Handles build mode, previews, cost checking |
 | `src/terrainManager.js` | Voxel terrain generation, rendering & physics-based destruction |
@@ -90,6 +102,8 @@ Parcel defaults to <http://localhost:1234>.  Change the port with the `--port` f
 | `src/enemyManager.js` | Wave logic, enemy AI, patrol & attack routines |
 | `src/resourceManager.js` | Centralised resource store (registry binding) |
 | `src/carrier.js` | Creates the hover-carrier sprite one time |
+| `src/styles/landing.css` | Styling for the landing page |
+| `src/styles/galaxyMap.css` | Styling for the galaxy map interface |
 
 ---
 

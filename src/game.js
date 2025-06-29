@@ -7,6 +7,7 @@ import { TerrainManager } from './terrainManager.js';
 import { TurretManager } from './turretManager.js';
 import { EnemyManager } from './enemyManager.js';
 import { createBuildManager } from './buildManager.js';
+import { LandingScene } from './landingScene.js';
 
 let drillManager, resourceManager, terrainManager, turretManager, enemyManager, buildManager;
 
@@ -46,23 +47,51 @@ class LoadingScene extends Phaser.Scene {
   }
 
   create() {
-    // Generate world parameters once here
-    const minWidth = 1024;
-    const maxWidth = 6048; // Further reduced for performance
-    const randomWidthAddition = Math.floor(Math.random() * (maxWidth - minWidth));
-    const worldWidth = minWidth + randomWidthAddition;
+    console.log('LoadingScene created');
     
-    const minHeight = 1800; // Ensure 800 px sky + 1000 px depth
-    const maxHeight = 2400;
-    const randomHeightAddition = Math.floor(Math.random() * (maxHeight - minHeight));
-    const worldHeight = minHeight + randomHeightAddition;
+    // Get planet parameters from registry (required from LandingScene)
+    let worldParams = this.registry.get('selectedPlanet');
+    console.log('Retrieved world params from registry:', worldParams);
     
-    const worldSeed = Math.random() * 1000;
+    // If no planet is selected, this should not happen with the landing page
+    // but we'll keep fallback logic just in case
+    if (!worldParams) {
+      console.warn('No planet selected, using fallback parameters');
+      // Generate fallback world parameters
+      const minWidth = 2048;
+      const maxWidth = 4096;
+      const randomWidthAddition = Math.floor(Math.random() * (maxWidth - minWidth));
+      const worldWidth = minWidth + randomWidthAddition;
+      
+      const minHeight = 1800; // Ensure 800 px sky + 1000 px depth
+      const maxHeight = 2200;
+      const randomHeightAddition = Math.floor(Math.random() * (maxHeight - minHeight));
+      const worldHeight = minHeight + randomHeightAddition;
+      
+      const worldSeed = Math.random() * 1000;
+
+      worldParams = {
+        width: worldWidth,
+        height: worldHeight,
+        seed: worldSeed,
+        resourceMultiplier: 1.0,
+        enemyScaling: 1.0
+      };
+    }
     
     // Store world parameters in registry to access in main scene
-    this.registry.set('worldWidth', worldWidth);
-    this.registry.set('worldHeight', worldHeight);
-    this.registry.set('worldSeed', worldSeed);
+    this.registry.set('worldWidth', worldParams.width);
+    this.registry.set('worldHeight', worldParams.height);
+    this.registry.set('worldSeed', worldParams.seed);
+    this.registry.set('resourceMultiplier', worldParams.resourceMultiplier || 1.0);
+    this.registry.set('enemyScaling', worldParams.enemyScaling || 1.0);
+    
+    // If we have a planet name, update loading text
+    if (worldParams.planetName) {
+      if (this.loadingText) {
+        this.loadingText.setText(`Generating ${worldParams.planetName}...`);
+      }
+    }
     
     // Start the main game scene
     this.scene.launch('GameScene');
@@ -167,6 +196,17 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    console.log('GameScene created');
+    
+    // Reset all manager references to ensure clean state when switching planets
+    console.log(`[GAME] Resetting all manager references for new world`);
+    drillManager = null;
+    resourceManager = null;
+    terrainManager = null;
+    turretManager = null;
+    enemyManager = null;
+    buildManager = null;
+    
     // Handle audio context
     this.sound.pauseOnBlur = false;
     
@@ -178,9 +218,16 @@ class GameScene extends Phaser.Scene {
     });
     
     // Get world parameters from registry
-    const worldWidth = this.registry.get('worldWidth');
-    const worldHeight = this.registry.get('worldHeight');
-    const worldSeed = this.registry.get('worldSeed');
+    const worldParams = this.registry.get('selectedPlanet');
+    console.log('GameScene received world params:', worldParams);
+    
+    // Extract world parameters or use defaults
+    const worldWidth = worldParams?.width || this.registry.get('worldWidth') || 2048;
+    const worldHeight = worldParams?.height || this.registry.get('worldHeight') || 2200;
+    const worldSeed = worldParams?.seed || this.registry.get('worldSeed') || Math.random() * 1000;
+    const resourceMultiplier = worldParams?.resourceMultiplier || this.registry.get('resourceMultiplier') || 1.0;
+    
+    console.log(`Creating world with dimensions: ${worldWidth}x${worldHeight}, seed: ${worldSeed}`);
     
     resourceManager = new ResourceManager(this);
     
@@ -191,7 +238,8 @@ class GameScene extends Phaser.Scene {
       tileSize: 20,
       seed: worldSeed,
       cloudDensity: 0.01,
-      cloudSpeed: 0.2
+      cloudSpeed: 0.2,
+      resourceMultiplier: resourceMultiplier
     });
     
     const carrier = createCarrier(this, terrainManager, worldWidth);
@@ -251,9 +299,20 @@ class GameScene extends Phaser.Scene {
     buildManager = createBuildManager(this, terrainManager, resourceManager);
     
     // Create game UI with callback to buildManager
-    this.ui = createUI(this, (building) => {
-      console.log(`Building selected from UI: ${building}`);
-      buildManager.enterBuildMode(building);
+    this.ui = createUI(this, (buildingType) => {
+      buildManager.selectBuilding(buildingType);
+    });
+    
+    // Update planet info in the UI
+    if (this.ui && this.ui.updatePlanetInfo) {
+      this.ui.updatePlanetInfo();
+    }
+    
+    // Clean up UI when the scene shuts down to prevent DOM duplication
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (this.ui && this.ui.destroy) {
+        this.ui.destroy();
+      }
     });
     
     // Track whether gameplay is currently paused by the settings modal
@@ -331,6 +390,8 @@ class GameScene extends Phaser.Scene {
     // Calculate how many chunks we need for the initial view
     const initialRadius = 3; // Number of chunks to generate in each direction
     
+    console.log('Initializing world chunks around position:', centerX, centerY);
+    
     // Calculate total chunks to generate for progress tracking
     const chunkDiameter = initialRadius * 2 + 1;
     this.totalInitialChunks = chunkDiameter * chunkDiameter;
@@ -341,17 +402,21 @@ class GameScene extends Phaser.Scene {
       this.generatedChunks++;
       const progress = Math.min(this.generatedChunks / this.totalInitialChunks, 1);
       
+      console.log(`Chunk generation progress: ${this.generatedChunks}/${this.totalInitialChunks} (${Math.round(progress * 100)}%)`);
+      
       // Report progress to the loading scene
       this.scene.get('LoadingScene').events.emit('world-generation-progress', progress);
       
       // When all initial chunks are generated, start the game
       if (progress >= 1 && !this.initialChunksGenerated) {
         this.initialChunksGenerated = true;
+        console.log('All chunks generated, starting gameplay');
         this.startGameplay();
       }
     });
     
     // Start generating terrain chunks around the carrier
+    console.log('Starting terrain generation...');
     terrainManager.generateTerrainChunksAround(centerX, centerY, initialRadius);
     
     // Monitor chunk generation progress and ensure we don't get stuck
@@ -392,13 +457,36 @@ class GameScene extends Phaser.Scene {
   
   // Start gameplay after initial world generation
   startGameplay() {
+    // Log world parameters for debugging
+    const planetInfo = this.registry.get('selectedPlanet');
+    console.log(`[GAME] Starting gameplay for planet: ${planetInfo?.planetName || 'unknown'}`);
+    console.log(`[GAME] Enemy scaling factor: ${planetInfo?.enemyScaling || 1.0}`);
+    
     // Enable the wave system after a short delay so the UI has time to appear
     // and the player sees the loading overlay fade out cleanly.
     this.time.delayedCall(1000, () => {
-      enemyManager.enableWaveSystem();
-      // Immediately start the first wave instead of waiting for the break timer
-      enemyManager.startWave();
-      // Subsequent waves will be handled automatically by EnemyManager.
+      console.log(`[GAME] Enabling wave system after delay`);
+      
+      // Check if enemyManager exists before enabling
+      if (!this.enemyManager) {
+        console.error(`[GAME] ERROR: enemyManager is undefined or null when trying to enable wave system`);
+        return;
+      }
+      
+      // Activate the wave system so EnemyManager.updateWaveSystem runs.
+      // Use the scene-bound reference to guarantee we are enabling waves
+      // on *this* world instance rather than any lingering global manager.
+      this.enemyManager.enableWaveSystem();
+
+      // Rather than forcing the first wave immediately, prime the regular
+      // BREAK timer so the UI shows the countdown and waves start naturally.
+      this.enemyManager.waveBreakTimer = this.enemyManager.WAVE_SETTINGS.BREAK_DURATION;
+      this.enemyManager.isWaveActive = false;
+
+      // Reset spawn/break timers so we begin a clean cycle.
+      this.enemyManager.spawnTimer = 0;
+      
+      console.log(`[GAME] Wave system initialized with break timer: ${this.enemyManager.waveBreakTimer}`);
     });
     
     // Set up periodic chunk generation as player moves
@@ -429,11 +517,26 @@ class GameScene extends Phaser.Scene {
       } else if (this.cursors.right.isDown) {
         this.cameras.main.scrollX += 10;
       }
+      
+      // Add wave system safety check (every ~5 seconds)
+      if (this.time.now % 300 === 0) {
+        if (this.enemyManager && !this.enemyManager.waveSystemEnabled && this.initialChunksGenerated) {
+          console.log(`[GAME] SAFEGUARD: Wave system not enabled despite world generation being complete. Attempting to enable...`);
+          
+          // Try to start the wave system if it wasn't enabled properly
+          this.enemyManager.enableWaveSystem();
+          this.enemyManager.waveBreakTimer = this.enemyManager.WAVE_SETTINGS.BREAK_DURATION;
+          this.enemyManager.isWaveActive = false;
+          this.enemyManager.spawnTimer = 0;
+          
+          console.log(`[GAME] SAFEGUARD: Wave system recovery attempt completed`);
+        }
+      }
 
       // Update game managers only while not paused
-      drillManager.update();
-      turretManager.update();
-      enemyManager.update();
+      if (this.drillManager) this.drillManager.update();
+      if (this.turretManager) this.turretManager.update();
+      if (this.enemyManager) this.enemyManager.update();
       if (this.carrier && this.carrier.update) {
         this.carrier.update();
       }
@@ -457,7 +560,7 @@ const config = {
     width: '100%',
     height: '100%'
   },
-  backgroundColor: '#3399ff',
+  backgroundColor: '#03080f',
   physics: {
     default: 'arcade',
     arcade: {
@@ -465,7 +568,7 @@ const config = {
       debug: false
     }
   },
-  scene: [LoadingScene, GameScene]
+  scene: [LandingScene, LoadingScene, GameScene]
 };
 
 new Phaser.Game(config);
