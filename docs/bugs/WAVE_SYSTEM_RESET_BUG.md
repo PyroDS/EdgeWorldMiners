@@ -1,5 +1,7 @@
 # Wave System Reset Bug Documentation
 
+**Status: RESOLVED**
+
 ## Bug Description
 
 **Issue**: When a user navigates between planets using the Galaxy Map, enemy waves fail to start on subsequent planets.
