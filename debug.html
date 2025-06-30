@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EdgeWorldMiners - UI Debug Mode</title>
+  
+  <!-- Styling -->
+  <link rel="stylesheet" href="src/styles/ui.css">
+  <link rel="stylesheet" href="src/styles/ui-components.css">
+  <link rel="stylesheet" href="src/styles/notifications.css">
+  <link rel="stylesheet" href="src/styles/galaxyMap.css">
+  <link rel="stylesheet" href="src/styles/landing.css">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: #222;
+      color: white;
+      overflow: hidden;
+    }
+    
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    
+    #debug-panel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.8);
+      border: 1px solid #444;
+      border-radius: 5px;
+      padding: 10px;
+      z-index: 1000;
+      font-size: 14px;
+      width: 300px;
+    }
+    
+    #debug-panel h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    }
+    
+    .debug-button {
+      background-color: #4d88ff;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .debug-button:hover {
+      background-color: #2a66cc;
+    }
+    
+    .buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px;
+    }
+    
+    #debug-stats {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <!-- Game container -->
+  <div id="game-container"></div>
+  
+  <!-- Debug statistics container -->
+  <div id="debug-stats"></div>
+  
+  <!-- Debug control panel -->
+  <div id="debug-panel">
+    <h3>UI Debug Controls</h3>
+    
+    <div class="buttons-grid">
+      <button class="debug-button" id="test-all">Test All Components</button>
+      <button class="debug-button" id="test-toasts">Test Notifications</button>
+      <button class="debug-button" id="test-dialogs">Test Dialogs</button>
+      <button class="debug-button" id="test-left-nav">Test Left Nav</button>
+      <button class="debug-button" id="test-galaxy-map">Test Galaxy Map</button>
+      <button class="debug-button" id="toggle-fps">Toggle FPS</button>
+      <button class="debug-button" id="print-state">Print State</button>
+      <button class="debug-button" id="restart">Restart Game</button>
+    </div>
+  </div>
+  
+  <!-- Import game scripts -->
+  <script type="module">
+    import { initDebugMode } from './src/debug-launcher.js';
+    
+    // Initialize the game in debug mode
+    document.addEventListener('DOMContentLoaded', () => {
+      // Start the game in debug mode
+      initDebugMode();
+      
+      // Set up debug panel buttons
+      document.getElementById('test-all').addEventListener('click', () => {
+        window.debugControls.testUI();
+      });
+      
+      document.getElementById('test-toasts').addEventListener('click', () => {
+        import('./src/ui/initUI.js').then(({ initUI }) => {
+          const ui = initUI();
+          // Show various toast types
+          ui.showToast('This is a regular toast', { duration: 3000 });
+          setTimeout(() => ui.showSuccessToast('This is a success toast', { duration: 3000 }), 1000);
+          setTimeout(() => ui.showWarningToast('This is a warning toast', { duration: 3000 }), 2000);
+          setTimeout(() => ui.showErrorToast('This is an error toast', { duration: 3000 }), 3000);
+        });
+      });
+      
+      document.getElementById('test-dialogs').addEventListener('click', () => {
+        import('./src/ui/initUI.js').then(({ initUI }) => {
+          const ui = initUI();
+          ui.showDialog('Test Dialog', 'This is a test dialog with confirm and cancel buttons.', {
+            showCancel: true,
+            onConfirm: () => ui.showSuccessToast('Dialog confirmed!', { duration: 2000 }),
+            onCancel: () => ui.showWarningToast('Dialog cancelled!', { duration: 2000 })
+          });
+        });
+      });
+      
+      document.getElementById('test-left-nav').addEventListener('click', () => {
+        import('./src/core/services.js').then((module) => {
+          const services = module.default;
+          const eventBus = services.get('eventBus');
+          
+          // Cycle through navigation states
+          const pages = ['home', 'map', 'inventory', 'settings'];
+          let currentIndex = 0;
+          
+          const interval = setInterval(() => {
+            const page = pages[currentIndex];
+            eventBus.emit('navigation:change', { page });
+            
+            currentIndex = (currentIndex + 1) % pages.length;
+            
+            // Stop after cycling through all pages once
+            if (currentIndex === 0) {
+              clearInterval(interval);
+            }
+          }, 1000);
+        });
+      });
+      
+      document.getElementById('test-galaxy-map').addEventListener('click', () => {
+        import('./src/core/services.js').then((module) => {
+          const services = module.default;
+          const eventBus = services.get('eventBus');
+          eventBus.emit('overlay:show', { overlay: 'galaxyMap' });
+        });
+      });
+      
+      document.getElementById('toggle-fps').addEventListener('click', () => {
+        window.debugControls.toggleFPS();
+      });
+      
+      document.getElementById('print-state').addEventListener('click', () => {
+        window.debugControls.printState();
+      });
+      
+      document.getElementById('restart').addEventListener('click', () => {
+        window.debugControls.restart();
+      });
+    });
+  </script>
+</body>
+</html> 

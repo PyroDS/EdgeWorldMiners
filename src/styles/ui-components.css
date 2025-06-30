@@ -1,0 +1,494 @@
+/**
+ * UI Components CSS
+ * 
+ * Styling for the component-based UI architecture
+ */
+
+/* Base UI Component */
+.ui-component {
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Left Navigation Bar */
+.left-navigation-bar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background-color: #1a2634;
+  border-right: 1px solid #304050;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 100;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+  transition: width 0.3s ease;
+}
+
+.left-navigation-bar:hover {
+  width: 180px;
+}
+
+.nav-title {
+  padding: 20px 0;
+  text-align: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex-grow: 1;
+}
+
+.nav-item {
+  width: 100%;
+  padding: 15px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a0b0c0;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-item:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.active {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.nav-item.active:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #4d88ff;
+}
+
+/* Galaxy Map Overlay */
+.galaxy-map {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-container {
+  position: relative;
+  flex-grow: 1;
+  margin: 0 50px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.voxel-space {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.star {
+  position: absolute;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 5px #ffffff;
+}
+
+.nebula {
+  position: absolute;
+  z-index: 0;
+}
+
+.planet {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+  z-index: 1;
+}
+
+.planet:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.planet.selected {
+  transform: scale(1.15);
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 166, 0, 0.5);
+}
+
+/* Planet types */
+.planet.small {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #9c88ff, #4834d4);
+}
+
+.planet.large {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #f6e58d, #ffbe76);
+}
+
+.planet.rich {
+  background: linear-gradient(135deg, #55efc4, #00b894);
+}
+
+.planet.deep {
+  background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+}
+
+.planet.easy {
+  background: linear-gradient(135deg, #7ed6df, #22a6b3);
+}
+
+.planet.hard {
+  background: linear-gradient(135deg, #ff7979, #eb4d4b);
+}
+
+/* Planet details panel */
+.planet-details {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 300px;
+  background-color: rgba(26, 38, 52, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.planet-details h3 {
+  margin-top: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 10px;
+  text-align: center;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.detail-row .label {
+  color: #a0b0c0;
+}
+
+.detail-row .value {
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.planet-description, .type-description {
+  margin: 15px 0;
+  font-size: 14px;
+  color: #c0c0c0;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.primary-button, .secondary-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.primary-button {
+  background-color: #4d88ff;
+  color: white;
+}
+
+.primary-button:hover {
+  background-color: #5c93ff;
+  box-shadow: 0 0 10px rgba(77, 136, 255, 0.5);
+}
+
+.secondary-button {
+  background-color: #304050;
+  color: #e0e0e0;
+}
+
+.secondary-button:hover {
+  background-color: #3a4b5c;
+}
+
+/* Adjust layout for main game area (accounting for left nav) */
+.game-container {
+  margin-left: 80px; /* Matches left-navigation-bar width */
+  transition: margin-left 0.3s ease;
+  height: 100%;
+}
+
+/* General overlay styling */
+.full-screen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-header {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.overlay-header h2 {
+  margin: 0;
+  color: #fff;
+}
+
+.close-button {
+  position: absolute;
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+/* Modal Dialog */
+.modal-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.modal-dialog.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.modal-container {
+  position: relative;
+  background-color: #1a2634;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  transform: scale(0.9);
+}
+
+.modal-dialog.visible .modal-container {
+  transform: scale(1);
+}
+
+.modal-container.size-small {
+  width: 300px;
+}
+
+.modal-container.size-medium {
+  width: 500px;
+}
+
+.modal-container.size-large {
+  width: 700px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: #253546;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.2rem;
+}
+
+.modal-content {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+  color: #d0d0d0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  background-color: #253546;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 10px;
+}
+
+/* Toast Notification */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 3000;
+  max-width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast-notification {
+  background-color: rgba(26, 38, 52, 0.95);
+  color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  margin-bottom: 10px;
+  min-width: 250px;
+  max-width: 350px;
+  transform: translateX(100%);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.toast-notification.visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-notification.hiding {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.toast-content {
+  display: flex;
+  padding: 12px 15px;
+  align-items: center;
+}
+
+.toast-message {
+  flex-grow: 1;
+  margin-right: 10px;
+  font-size: 14px;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  color: #ffffff;
+}
+
+.toast-progress {
+  height: 3px;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Toast types */
+.toast-info {
+  border-left: 4px solid #3498db;
+}
+
+.toast-info .toast-progress-bar {
+  background-color: #3498db;
+}
+
+.toast-success {
+  border-left: 4px solid #2ecc71;
+}
+
+.toast-success .toast-progress-bar {
+  background-color: #2ecc71;
+}
+
+.toast-warning {
+  border-left: 4px solid #f39c12;
+}
+
+.toast-warning .toast-progress-bar {
+  background-color: #f39c12;
+}
+
+.toast-error {
+  border-left: 4px solid #e74c3c;
+}
+
+.toast-error .toast-progress-bar {
+  background-color: #e74c3c;
+} 

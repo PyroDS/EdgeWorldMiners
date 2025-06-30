@@ -9,7 +9,7 @@
  * - carrier.js (for positioning relative to carrier)
  */
 
-import { BaseTurret } from './turrets/BaseTurret.js';
+import { BaseTurret } from './entities/turrets/BaseTurret.js';
 
 export class CarrierHardpoint extends BaseTurret {
   /**
