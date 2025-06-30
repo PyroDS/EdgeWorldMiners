@@ -37,6 +37,17 @@ export class BuildManager {
     this.setupEventListeners();
   }
   
+  // This is the missing function that the UI is trying to call
+  selectBuilding(buildingType) {
+    // Call the enterBuildMode method with the selected building type
+    this.enterBuildMode(buildingType);
+  }
+  
+  // Helper method to check if currently in build mode (used by UI)
+  isInBuildMode() {
+    return this.buildMode;
+  }
+  
   setupEventListeners() {
     // Place building on valid terrain
     this.scene.input.on('pointerdown', (pointer) => {
